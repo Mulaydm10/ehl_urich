@@ -1,0 +1,17 @@
+/home/mulaydm10/Downloads/FEATURES.md = read this and tell me which features listed in here are not part of thebackend right now ?
+
+---
+
+lets start builing grou the features that are similar first and lets eat the frog first , so plan accordinigly
+
+---
+
+convert into phases we merge after each phase and then merge and then compact and then next merge
+
+---
+
+dont thinkk about deadline
+
+---
+
+keep working
