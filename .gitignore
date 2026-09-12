@@ -19,3 +19,8 @@ flowstate/analysis/out/crowd_*.csv
 flowstate/analysis/out/graph_edges*.parquet
 flowstate/analysis/out/route_calibration.csv
 flowstate/data/
+
+# scratch files for commit messages / one-off patches
+_m.txt
+_v.py
+_p.py
