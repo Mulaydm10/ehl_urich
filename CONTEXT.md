@@ -8,6 +8,33 @@ Submission: pitch deck + this GitHub repo (Entire enabled) + live demo. **Deadli
 You are on the **Mac mini** (arm64, macOS 26, ~314 GB free). This is the compute box — the Linux
 laptop that set this up is at <300 MB free and cannot hold the dataset. Do the data work here.
 
+## Current position — 2026-09-12 ~22:00 CEST
+
+The build now follows **`FLOWSTATE_Execution_Plan.docx`** (Parts A–E). Phase status:
+
+| Phase | Deliverable | Status |
+|---|---|---|
+| 0 own the argument | the three answers, cold | numbers VERIFIED, rehearsal is human-side |
+| 1 edge table | `analysis/11_build_graph.py` | **DONE** — 21,130 nodes / 38,351 edges, LCC 93.9%, 8.7 s |
+| 2 router | `app/router.py` | **NEXT** — not started |
+| 3 wire into app | ROUTE tab + two-rider switch | not started |
+| 4 X-hour loop | arc orienteering | not started |
+| 5 rebuild pitch | `docs/06_PITCH.md` holds disproved claims | not started |
+| 6 bake + rehearse | `data/cache/demo.pkl` | not started |
+
+**Phase 1→2→3 is a strict serial chain and is the whole submission.** Phases 0, 3, 5, 6 are
+never to be cut; cut order if short is surprise index, then Phase 4, then peak-end.
+
+**`flowstate/docs/13_PHASE0_PHASE1.md` is the authoritative record** of what was measured,
+which plan claims survived checking, and which did not. Read it before quoting any number.
+
+## The dataset is here now
+
+The full package was recovered and extracted on this Mac:
+`flowstate/data/raw/salvaged/` — **trips-samples-2 complete at 8,000/8,000 rides**,
+trips-samples-1 partial at 1,469. 1.7 GB, gitignored, stays on this machine.
+Rebuild the cell table in 13.8 s and the graph in 8.7 s (commands in doc 13).
+
 ## The challenge
 
 Two use cases, one or both: **A→B best route**, and **loop for X hours from here**.
@@ -46,18 +73,27 @@ One curve produces both **Fun Score** and **Rider Safety**.
 
 ## Blocked / open
 
-1. **The download was truncated at 384 MB** → 98% of `trips-samples-1`, all of `exampleUserB`, and
-   user C's manifest are missing. Everything so far is **Bavaria-only**. This blocks six features
-   (F10, F29–F33) = the whole "BMW crowd data" criterion. **Fixing this is the highest-value move**,
-   and this machine has the disk for it. See `flowstate/docs/11_ARCHIVE_SALVAGE.md`.
-   Note: `derived/*.parquet` were built from the FULL lake and may already cover much of it.
-2. **ABS semantics are contested.** `flowstate` treats `ridingabsbraking` as an intervention event
-   (the Grossglockner demo moment depends on it); `research/FINDINGS.md` says it is a status code;
-   BMW's schema says 0/1 but the data holds 0–3. **Ask BMW on site — it is question #1.**
-3. `analysis/04_master_table.py` uses `positionmapmatchedheading`; switching to `positionrawheading`
-   improves every downstream number.
-4. Entire shows **Inactive** on entire.io — the GitHub App needs `ehl_urich` added to its repo list
-   (needs GitHub sudo re-auth). Checkpoints push fine regardless.
+1. ~~Truncated download~~ **RESOLVED.** The salvage worked; the lake is extracted here.
+   F29–F33 are built, F10 is **PROVEN** (46.2% of user-A moving points snap to a crowd cell;
+   per-trip pace vs lean ratio spearman **+0.502** over 66 trips). F32 detour ratio is
+   unblocked but not yet computed — it needs the router.
+2. ~~ABS semantics contested~~ **RESOLVED.** `ridingabsbraking == 3` is the hard-braking event:
+   60 samples (0.02%), mean **−0.250 g**, 86.7% decelerating, vs codes 0/1/2 all ≈0 g.
+   **But:** ABS is orthogonal to cornering demand (ρ=+0.05 vs `demand_p90`), so never say
+   "hard corners are where ABS fires."
+3. ~~`04_master_table.py` uses map-matched heading~~ — `10`/`11` already use `positionrawheading`
+   only. Script 04 is superseded by the crowd layer for anything downstream.
+4. ~~Entire Inactive~~ **RESOLVED.** A region mirror was added (EU Frankfurt); state is active.
+
+**Still genuinely open:**
+
+- **The "three trip ids" forensics card is wrong** — measured 24 cells, median 5 distinct rides.
+  Do not offer it to BMW until re-derived. See doc 13.
+- **Pitch slide 2 is still dead** (asymmetry rejected) and `docs/06_PITCH.md` still contains it.
+- **Two corner tables disagree**: 5,747 corners at r=0.730 vs 5,253 at r=0.765. Pick one, use it
+  everywhere.
+- **Coverage is Bavaria only** (lat 47.38–48.03, lon 10.72–11.96). A Zürich start returns nothing.
+  Bound the demo map and rehearse start points inside the box.
 
 ## Non-negotiables
 
@@ -82,3 +118,10 @@ in `~/.zshrc`. Verify with `entire status`; it should report `Enabled - branch m
 `uv` is the package manager. `uv venv .venv && uv pip install pandas pyarrow numpy scipy matplotlib`
 (add `osmnx geopandas shapely rasterio networkx streamlit pydeck plotly` for the app).
 Run scripts with `PYTHONIOENCODING=utf-8` — route names contain umlauts.
+
+**The venv is compulsory.** Use `/Users/mulaydm10/ehl_urich/.venv/bin/python` by absolute path
+(a relative `../.venv/bin/python` triggers a sys.prefix RuntimeWarning). Installed and verified:
+pandas 3.0.5, pyarrow 25.0.1, numpy 2.5.3, scipy 1.18.1.
+
+**Re-check `docs/09_DATA_MAP.md` for a re-exposed street address after any archive extraction
+over the repo** — unzipping the package silently reverted that redaction once already.
