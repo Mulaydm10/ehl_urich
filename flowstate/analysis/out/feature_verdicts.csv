@@ -1,0 +1,29 @@
+id,feature,verdict,evidence
+F01,"L/R lean asymmetry (p95, per ride)",WORKS,"n=66 rides, mean L-R = -1.40 deg, 95% CI [-2.11, -0.69] -> SIGNIFICANT for user A"
+F02,headroom (p95 - p50 lean),WORKS,p50=2.4 deg p95=18.0 deg -> headroom 15.6 deg
+F04,lean consistency sigma,WORKS,per-ride sd of |lean| ranges 0.0 - 19.9 deg across rides
+F05a,style via BRAKE PRESSURE,DEAD,sensorsbreakpressurefront/rear are 100% flat at 0 on all 100 rides - channel absent on these bikes
+F05b,style via THROTTLE + derived decel,WORKS,"throttle varies on 96% of rides, p50=19% p95=40%; decel from d(v)/dt available"
+F06,smoothness (jerk RMS),WORKS-WEAK,computable but at 1 Hz this is coarse; per-ride jerk RMS spans 0.00 - 1.26 m/s^3
+F07,gradient tolerance (climb vs descent),WORKS,"grade from positionrawelevation: p05=-8.7% p95=8.7%, 35% of points on >3% grade"
+F10,pace index (own speed vs crowd),BLOCKED,needs the crowd data lake (trips-samples-*) - in the truncated 384MB archive
+F11,fatigue curve (|lean| vs elapsed time),WORKS,slope +0.21 deg/hour over rides up to 9.8 h - needs per-rider clustering to be trusted
+F14,Machine DNA (bike identity),WORKS+RISK,"bikeId present: 20 DISTINCT BIKES over 101 rides - user A is a TEST RIDER, so bike is a confounder for skill"
+F16,rider level radar (per dimension),WORKS,all constituent axes computable except wet (no rain join yet) and surface
+F17,curvature / corner radius,WORKS,radius = v / yaw_rate from positionmapmatchedheading; 100% of moving points give a usable radius
+F18,required lean arctan(v*omega/g),PROVEN,"corr 0.576 with measured lean over 244,147 points - see PART 2"
+F21,elevation / gradient,WORKS,positionrawelevation flat on only 1%% of rides (map-matched elevation is flat on 36%% - USE RAW)
+F19,corner rhythm (radius autocorrelation),WORKS-WEAK,"1 Hz sampling gives ~3-6 points per corner at 60-100 km/h; rhythm needs resampling by distance, not time"
+F20,handedness per road segment,WORKS,sign of yaw rate gives corner direction directly; 50% of cornering points are right-hand
+F22/F25,sight distance / scenic index,EXTERNAL,not in this data at all - requires OSM + DEM + land cover (as designed)
+F29,crowd speed percentiles,BLOCKED,needs trips-samples-1/2 (77.7k + 8.0k rides) from the truncated archive
+F30,crowd lean percentiles,BLOCKED,needs trips-samples-1/2 (77.7k + 8.0k rides) from the truncated archive
+F31,flow index,BLOCKED,needs trips-samples-1/2 (77.7k + 8.0k rides) from the truncated archive
+F32,detour ratio,BLOCKED,needs trips-samples-1/2 (77.7k + 8.0k rides) from the truncated archive
+F33,gem detection,BLOCKED,needs trips-samples-1/2 (77.7k + 8.0k rides) from the truncated archive
+F34,Road Pulse via VERTICAL ACCEL,DEAD,"sensorsaccelerationvertical is flat on 91% of rides, non-zero on only 2.8% of points"
+F54,"temperature (on-bike, not forecast)",WORKS-BETTER,sensorsoutsidetemperature real on 95% of rides: p05=11.5 p50=22.2 p95=32.5 C - this beats a weather API
+F52,rain at arrival time,PARTIAL,timestamps are REAL for example users (2021-07-23 to 2026-08-07) so a historical weather join is possible; anonymized lake timestamps are shifted and CANNOT be joined to weather
+F71a,ground truth via isFavorite,PRESENT-BUT-EMPTY,the field EXISTS in BMW's schema but is False on all 101 of user A's rides - check users B and C
+F71b,ground truth via plannedRoutes,WORKS,"89 GPX routes this rider deliberately planned = revealed preference, see 03_planned_routes.py"
+F71c,ground truth via repeats,WORKS,54 distinct start locations for 101 rides (max 13 repeats)

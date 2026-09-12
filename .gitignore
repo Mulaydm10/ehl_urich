@@ -1,1 +1,11 @@
 .playwright-mcp/
+.venv/
+__pycache__/
+*.pyc
+
+# NDA / personal data — transferred to Mac out-of-band, never to GitHub
+flowstate/analysis/out/planned_routes.csv
+flowstate/analysis/out/planned_route_dna.csv
+flowstate/session/
+data/raw/
+*.parquet.raw
