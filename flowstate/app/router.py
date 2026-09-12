@@ -629,9 +629,10 @@ class Route:
         return float(self.summary.get("km", 0.0))
 
 
-def _shortest(graph: Graph, si: int, ti: int, weights: np.ndarray | None = None):
-    """Dijkstra on either the fit cost or a pure-length copy of the graph."""
-    m = graph.matrix
+def _shortest(graph: Graph, si: int, ti: int, weights: np.ndarray | None = None,
+              matrix: csr_matrix | None = None):
+    """Dijkstra on the fit cost, a re-weighted copy, or a supplied matrix."""
+    m = graph.matrix if matrix is None else matrix
     if weights is not None:
         m = csr_matrix((weights, m.indices, m.indptr), shape=m.shape)
     dist, pred = dijkstra(m, directed=True, indices=si, return_predecessors=True)
@@ -809,6 +810,166 @@ def route_summary(path: pd.DataFrame, cells: pd.DataFrame,
     }
 
 
+def _path_sum(m: csr_matrix, idx) -> float:
+    """Total of one CSR weight along a node path, without touching pandas."""
+    tot = 0.0
+    for a, b in zip(idx[:-1], idx[1:]):
+        lo, hi = m.indptr[a], m.indptr[a + 1]
+        k = np.flatnonzero(m.indices[lo:hi] == b)
+        if len(k):
+            tot += float(m.data[lo + k[0]])
+    return tot
+
+
+def _penalise(m: csr_matrix, pairs, factor: float = 6.0) -> csr_matrix:
+    """
+    Make the edges already used expensive, in BOTH directions, so the return
+    leg looks for another road. Riding the same pass back the way you came is
+    a legal loop and a poor one.
+    """
+    m2 = m.copy()
+    for i, j in pairs:
+        for a, b in ((i, j), (j, i)):
+            lo, hi = m2.indptr[a], m2.indptr[a + 1]
+            k = np.flatnonzero(m2.indices[lo:hi] == b)
+            if len(k):
+                m2.data[lo + k[0]] *= factor
+    return m2
+
+
+def route_loop(start, hours: float, rider: Rider, z_star: float,
+               graph: Graph | None = None,
+               cells: pd.DataFrame | None = None,
+               edges: pd.DataFrame | None = None,
+               lam: float = LAMBDA_DEFAULT,
+               tau: float = TAU_DEFAULT,
+               osm: pd.DataFrame | None = None,
+               tolerance: float = 0.20,
+               n_candidates: int = 160,
+               reuse_penalty: float = 6.0) -> Route:
+    """
+    BMW use case B: "give me a loop for the next X hours from here."
+
+    Choosing the best closed tour under a time budget is the orienteering
+    problem, which is NP-hard, so this is a heuristic — and an honest one:
+
+      1. Dijkstra out from the start, and a second Dijkstra on the transposed
+         graph, which gives the time to get BACK from every node. A node is a
+         feasible turnaround only if out + back fits inside the budget.
+      2. Rank the feasible ring by fit cost per second — low cost per second
+         is exactly "this direction is full of roads that suit you".
+      3. For the best handful, ride out to the turnaround, then make every
+         edge just used 6x expensive and route home again. The return leg
+         then finds different roads instead of retracing the outbound one.
+      4. Keep the loops that land inside the budget and return the one with
+         the best peak-end score.
+
+    Time comes from the edge table's own median speeds, so the budget is in
+    real riding minutes, not an assumed average.
+    """
+    cells = load_cells() if cells is None else cells
+    edges = load_edges() if edges is None else edges
+    if graph is None:
+        graph = build_graph(edges, cells, rider, z_star, tau=tau, lam=lam, osm=osm)
+
+    if not in_coverage(start[0], start[1]):
+        return Route(False, note=(
+            f"That start is outside BMW's coverage "
+            f"({COVERAGE[0]}-{COVERAGE[1]} N, {COVERAGE[2]}-{COVERAGE[3]} E). "
+            "We have no crowd there, so we have no opinion."))
+
+    a = snap(start[0], start[1], cells, nodes=graph.nodes)
+    si = graph.index[a]
+    budget = float(hours) * 3600.0
+
+    fit = graph.matrix
+    sec = csr_matrix((_csr_aligned(graph, "seconds"), fit.indices, fit.indptr),
+                     shape=fit.shape)
+
+    t_out = dijkstra(sec, directed=True, indices=si)
+    t_back = dijkstra(sec.T.tocsr(), directed=True, indices=si)
+    c_out = dijkstra(fit, directed=True, indices=si)
+    c_back = dijkstra(fit.T.tocsr(), directed=True, indices=si)
+
+    total_t = t_out + t_back
+    total_c = c_out + c_back
+    # leave room for the detour the disjoint return will cost us
+    feasible = np.flatnonzero(np.isfinite(total_t) & np.isfinite(total_c) &
+                              (total_t >= 0.50 * budget) &
+                              (total_t <= 1.00 * budget))
+    if not len(feasible):
+        reach = np.nanmax(t_out[np.isfinite(t_out)]) / 3600.0 if np.isfinite(t_out).any() else 0.0
+        return Route(False, note=(
+            f"No turnaround fits a {hours:.1f} h budget from here. The "
+            f"furthest point reachable on roads we have data for is "
+            f"{reach:.1f} h away, so try a shorter loop or a start with more "
+            f"road around it."))
+
+    order = feasible[np.argsort(total_c[feasible] / np.maximum(total_t[feasible], 1.0))]
+
+    # Score candidates WITHOUT assembling them. Assembling means a pandas
+    # merge per candidate, which is ~5 ms and caps us at a few dozen tries;
+    # scoring off flat NumPy arrays is microseconds and lets us try hundreds.
+    flow_by_node = (graph.scored["flow"].reindex(graph.nodes)
+                    .fillna(0.0).to_numpy(dtype=float))
+    target = hours * 60.0
+
+    def try_all(tol: float):
+        hit, hit_score = None, -1.0
+        for mid in order[:n_candidates]:
+            out_idx = _shortest(graph, si, int(mid))
+            if out_idx is None or len(out_idx) < 2:
+                continue
+            used = list(zip(out_idx[:-1], out_idx[1:]))
+            home_idx = _shortest(graph, int(mid), si,
+                                 matrix=_penalise(fit, used, reuse_penalty))
+            if home_idx is None or len(home_idx) < 2:
+                continue
+            idx = out_idx + home_idx[1:]
+            mins = _path_sum(sec, idx) / 60.0
+            if not (1.0 - tol) * target <= mins <= (1.0 + tol) * target:
+                continue
+            arr = np.asarray(idx)
+            distinct = len(set(idx)) / len(idx)
+            fill = 1.0 - abs(mins - target) / max(target, 1.0)
+            sc = float(flow_by_node[arr].mean()) * distinct * fill
+            if sc > hit_score:
+                hit, hit_score = idx, sc
+        return hit
+
+    idx = try_all(tolerance)
+    widened = False
+    if idx is None:
+        # Do not hand the stage a dead end. Say the budget could not be met
+        # exactly and show the closest thing we can actually ride.
+        idx = try_all(min(tolerance * 2.5, 0.6))
+        widened = idx is not None
+
+    if idx is None:
+        return Route(False, note=(
+            f"Found turnarounds for a {hours:.1f} h loop but none came home "
+            f"inside the budget. Try a start with more connected road around "
+            f"it, or a different number of hours."))
+
+    best = _assemble(graph, idx)
+    if not best.ok:
+        return best
+    best.summary["distinct_share"] = len(set(idx)) / len(idx)
+    best.summary["budget_fill"] = best.summary["minutes"] / max(target, 1.0)
+
+    best.summary["is_loop"] = True
+    best.summary["budget_min"] = hours * 60.0
+    best.summary["turnaround"] = str(graph.nodes[order[0]])
+    note = (f"Loop: {best.summary['distinct_share']:.0%} of the cells are "
+            f"ridden once, the rest is unavoidable retracing.")
+    if widened:
+        note += (f" No loop fitted {hours:.1f} h to within "
+                 f"{tolerance:.0%}; this is the closest ridable one at "
+                 f"{best.summary['minutes']:.0f} min.")
+    best.note = (best.note + " " if best.note else "") + note
+    return best
+
+
 def compare_routes(a: Route, b: Route) -> dict:
     """
     How different are two routes for the same A and B? This, not the detour
@@ -838,19 +999,23 @@ def direct_route(A, B, graph: Graph) -> Route:
     return _assemble(graph, idx)
 
 
-def _csr_aligned_lengths(graph: Graph) -> np.ndarray:
+def _csr_aligned(graph: Graph, col: str) -> np.ndarray:
     """
     csr_matrix sorts and may sum duplicate (i,j) entries, so the edge frame's
-    row order is NOT the matrix's data order. Rebuild lengths through the
-    same constructor so the two line up exactly.
+    row order is NOT the matrix's data order. Rebuild any edge column through
+    the same constructor so it lines up with graph.matrix.data exactly.
     """
     m = csr_matrix(
-        (graph.edges["length_m"].to_numpy(dtype=float),
+        (graph.edges[col].to_numpy(dtype=float),
          (graph.edges["i"].to_numpy(dtype=np.int64),
           graph.edges["j"].to_numpy(dtype=np.int64))),
         shape=graph.matrix.shape,
     )
     return m.data
+
+
+def _csr_aligned_lengths(graph: Graph) -> np.ndarray:
+    return _csr_aligned(graph, "length_m")
 
 
 # --------------------------------------------------------------------------
