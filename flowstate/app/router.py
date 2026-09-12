@@ -594,20 +594,28 @@ def grip_used(lean_deg, a_long_g, mu: float = MU_DEFAULT):
     return np.sqrt(lat ** 2 + np.nan_to_num(lon) ** 2) / float(mu)
 
 
-def rider_grip_p95(corners: pd.DataFrame, mu: float = MU_DEFAULT,
-                   clip_g: float = 1.0) -> float:
+def rider_grip_p95(corners: pd.DataFrame, mu: float = MU_DEFAULT) -> float:
     """
-    The rider's own p95 grip utilisation across their corners. Uses the
-    larger-magnitude of a_min/a_max per corner, clipped — a handful of
-    corner-level accel extremes are sensor artefacts, not physics
-    (a motorcycle does not brake at 2.6 g).
+    The rider's own p95 cornering grip utilisation — LATERAL ONLY.
+
+    An earlier version combined each corner's peak lean with that corner's
+    peak |a_long| and returned 1.04, i.e. 104% of available grip. That is not
+    a hard rider, it is a bug: those two peaks happen at different instants.
+    You brake hard upright on the way in and you lean hard off the brakes at
+    the apex. Adding one corner's maximum of each into a friction circle
+    assumes a simultaneity the data does not show, and the corner table has no
+    per-sample pairing to recover it.
+
+    So we report the honest half: lateral grip, sqrt(tan(theta)^2)/mu, which
+    is exactly the basis the route summary uses for `grip_lat_p95`. The two
+    numbers are then comparable, which is the point of showing them together.
+
+    The longitudinal term stays available in `grip_used` for anywhere we do
+    have simultaneous samples.
     """
-    if not {"lean_deg", "a_min", "a_max"} <= set(corners.columns):
+    if "lean_deg" not in corners.columns:
         return float("nan")
-    lean = corners["lean_deg"].to_numpy(dtype=float)
-    a = np.nanmax(np.abs(corners[["a_min", "a_max"]].to_numpy(dtype=float)), axis=1)
-    a = np.clip(np.nan_to_num(a), 0.0, clip_g)
-    g = grip_used(lean, a, mu=mu)
+    g = grip_used(corners["lean_deg"].to_numpy(dtype=float), 0.0, mu=mu)
     g = g[np.isfinite(g)]
     return float(np.percentile(g, 95)) if len(g) else float("nan")
 
