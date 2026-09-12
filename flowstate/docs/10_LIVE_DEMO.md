@@ -108,7 +108,7 @@ Three red pins appear, each labelled *"REFUSED — the crowd leans 27° here, pa
 The gold line redraws onto different roads.
 
 > *"Same two points, same dial, different rider — the same human on a different motorcycle, because
-> there is one rider in this lake and we are not going to invent a second one. At Cruise these two
+> lean on a superbike and on a cruiser are not the same measurement. At Cruise these two
 > profiles share seventy-three per cent of their road. **At Send it they share ten per cent.**
 >
 > *The dial couldn't move this route. The rider moved almost all of it. That is what 'personal

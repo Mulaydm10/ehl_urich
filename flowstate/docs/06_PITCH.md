@@ -96,7 +96,7 @@ One table: every source and **what it contributes**, stated — not weighted.
 > are not weighted, they are an identity. The safety gate is a hard constraint, not a weight. There
 > is exactly one tunable number in the whole router — λ, the price of a dull kilometre — and we can
 > show you that above λ≈10 it stops changing the answer at all. **We did not run an ablation, so we
-> are not going to show you an ablation table.** With one rider in the lake it would measure our
+> are not going to show you an ablation table.** With two personal riders and no rider ids in the crowd lake it would mostly measure our
 > own arithmetic."*
 
 ### Slide 7 — **what we tested, and what failed**
@@ -215,7 +215,7 @@ search for a better number.
 > show you one we did not run.
 
 **"Your sample is tiny."**
-> It is: one rider in the personal lake, across twenty bikes. That is why slide 7 is the failures
+> It is: two riders with personal telemetry — one across twenty bikes — and no rider ids in the crowd lake. That is why slide 7 is the failures
 > slide, and why we bootstrap over rides rather than corners. The crowd half is not tiny — 7,976
 > rides, 2.72 million points — and the architecture takes another rider without a retrain: skill and
 > σ are two numbers read off the same column the road is scored on.

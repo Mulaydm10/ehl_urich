@@ -22,7 +22,7 @@ because the demo is a bonus-scoring criterion and it is the part they believe.
 | Slide 4 | the flow curve, safety as the right shoulder | **KEEP — it is the best slide in the deck** and the router implements it literally. |
 | Slide 5 | live demo | **REWRITE** — see below. |
 | Slide 6 | "measured contribution from the ablation" | **DEAD. No ablation was ever run.** Do not show a weights table we did not measure. |
-| Slide 7 | "leave-one-rider-out with a clustered CI" | **IMPOSSIBLE.** There is **one** rider in the lake (`exampleUserA`). LORO cannot exist. |
+| Slide 7 | "leave-one-rider-out with a clustered CI" | **IMPOSSIBLE.** **Corrected in doc 19:** there are **two** riders with personal telemetry (`exampleUserA`, `exampleUserC`) and no rider ids in the crowd lake. LORO over two riders is a pair of anecdotes, not a validation — still off the slides. |
 | Slide 8 | before / during / after in ConnectedRide | **KEEP the frame**, drop "around the rain" (weather is dropped) and the asymmetry half of "after". |
 | Slide 9 | scale, four sentences | **KEEP**, and now it has real numbers: 12 ms init, 60 ms route, 150 ms loop. |
 | Slide 10 | "your thrill, literally" | **KEEP.** |
