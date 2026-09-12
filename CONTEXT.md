@@ -70,15 +70,12 @@ One curve produces both **Fun Score** and **Rider Safety**.
   `sensorsoutsidetemperature` is real on 95% of rides and beats a weather API. Also: Sun 13 Sep is dry
   across all of Europe at 12:00, so a rain demo would show nothing.
 
-## Entire (session capture — required for submission)
+## Entire (session capture - required for submission)
 
 Entire is enabled here and captures this session automatically. On this Mac the token lives in a
-file store, not Keychain, so  must be set — it is already in
-. Verify any time with ● Enabled · branch main
-  Agents · Claude Code
-  Checkpoints sync to: origin
-Agents: run `entire agent-help` for machine-readable usage.; it should say .
-Checkpoints are created on commit and pushed to origin on .
+FILE store, not Keychain, so `export ENTIRE_TOKEN_STORE=file` must be set - it is already exported
+in `~/.zshrc`. Verify with `entire status`; it should report `Enabled - branch main` and
+`Checkpoints sync to: origin`. Checkpoints are created on commit and pushed on `git push`.
 
 ## Environment
 
