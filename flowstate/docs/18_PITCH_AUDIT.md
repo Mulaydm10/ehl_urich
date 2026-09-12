@@ -82,3 +82,10 @@ their own data.
 4. Slide 7 becomes **"what we tested and what failed"** (replacement 6).
 5. The demo script is rewritten beat-by-beat against `route_tab.py`, and
    `10_LIVE_DEMO.md` must be rewritten with it.
+
+> **Executed 2026-09-13 (Phase 5).** `06_PITCH.md` and `10_LIVE_DEMO.md` were rewritten from
+> this audit, and every demo beat was then checked against the running `service.py`. Two beats as
+> written here were still wrong — see **F101** in `analysis/out/feature_verdicts.csv`: the first
+> preset refuses nothing, and the honest "the dial did nothing" caption fires on *Kochel →
+> Tegernsee*, not on the second preset. This document stays as the audit record; the two rewritten
+> docs are the operative ones.

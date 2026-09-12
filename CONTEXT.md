@@ -19,7 +19,7 @@ The build now follows **`FLOWSTATE_Execution_Plan.docx`** (Parts A–E). Phase s
 | 2 router | `app/router.py` | **DONE** — 60 ms/route |
 | 3 wire into app | ROUTE tab + rider switch | **DONE** — `app/route_tab.py`, mobile-first |
 | 4 X-hour loop | `route_loop()` | **DONE** — 16/16 starts, ~150 ms |
-| 5 rebuild pitch | `docs/06_PITCH.md` holds disproved claims | **audited in doc 18; rewrite not started — do not cut** |
+| 5 rebuild pitch | `docs/06_PITCH.md` + `docs/10_LIVE_DEMO.md` | **DONE** — both rewritten from doc 18, beats verified against the running service |
 | 6 bake + rehearse | `data/cache/demo.pkl` | bake **DONE**; rehearsal not started |
 | + external sources | OSM, not in the original plan | **DONE** |
 
@@ -94,15 +94,20 @@ One curve produces both **Fun Score** and **Rider Safety**.
 
 - **The "three trip ids" forensics card is wrong** — measured 24 cells, median 5 distinct rides.
   Do not offer it to BMW until re-derived. See doc 13.
-- **`docs/06_PITCH.md` is far more broken than "slide 2 is dead".** Audited line by line in
-  **doc 18**: six claims are disproved and **all five demo beats are unperformable** - they
-  describe greyed-out dial options, per-km traffic-light counts, counter-clockwise loop
-  routing, time-aware weather and Skill Quests, none of which exist. Slide 6 quotes an
-  **ablation that was never run**; slide 7 quotes **leave-one-rider-out**, which is impossible
-  with one rider in the lake. Presented as written, the live demo contradicts the slides on
-  stage. Doc 18 lists what survives and the six measured claims that replace the rest.
-- **Two corner tables disagree**: 5,747 corners at r=0.730 vs 5,253 at r=0.765. Pick one, use it
-  everywhere.
+- ~~`docs/06_PITCH.md` contradicts the demo~~ **RESOLVED 2026-09-13 (Phase 5).** Both `06_PITCH.md`
+  and `10_LIVE_DEMO.md` were rewritten from doc 18, and every beat was then checked against the
+  running `service.py` rather than against a doc. Two things the docs got wrong and the probe
+  caught: **Lenggries -> Bad Tolz has NO refused roads** (`explain()` ends "Nothing on this route
+  crosses your safety gate"), so do not promise red pins on that beat; and the app's honest
+  "the dial barely moves the road" caption fires on **Kochel -> Tegernsee** (overlap 0.848, gain
+  -0.17), not on the second preset. The script now uses that one screen for both halves of the
+  payoff: the dial does nothing there, and switching rider changes 90% of the road.
+  **Still never say:** 1.5-1.8x detour, any ablation weight, leave-one-rider-out, left/right
+  asymmetry, or the "three trip ids" card.
+- ~~Two corner tables disagree~~ **DECIDED in the rewrite: quote 5,253 corners at r = 0.765**
+  everywhere, because that is the table the app renders. The 5,747 table keeps the low-speed
+  manoeuvres and gives 0.730 with an EIV slope of 1.08 - say that if challenged, and say the
+  filter is a definition rather than a search for a better number.
 - **Coverage is Bavaria only** (lat 47.38–48.03, lon 10.72–11.96). A Zürich start returns nothing.
   Bound the demo map and rehearse start points inside the box.
 - **The Thrill Dial moves the route on a MINORITY of A→B pairs.** Across 200 routable pairs the
