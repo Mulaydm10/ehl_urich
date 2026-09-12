@@ -230,6 +230,81 @@ def load_edges(tag: str = TAG, symmetrise: bool = True) -> pd.DataFrame:
     return symmetrise_edges(e) if symmetrise else e
 
 
+def load_osm(tag: str = TAG) -> pd.DataFrame | None:
+    """OSM attributes joined per cell by analysis/13_osm_layer.py. Optional."""
+    f = OUT / f"osm_cells{tag}.parquet"
+    if not f.exists():
+        return None
+    o = pd.read_parquet(f)
+    o["morton_code"] = o["morton_code"].astype(str)
+    return o.set_index("morton_code")
+
+
+def apply_legal_speed(cells: pd.DataFrame, osm: pd.DataFrame | None,
+                      tol: float = 1.10) -> pd.DataFrame:
+    """
+    Recompute road demand at the POSTED LIMIT instead of at the speed the
+    crowd actually used.
+
+    This is the honest fix, and it is better than refusing the road. Our
+    challenge number is a lean angle, theta = arctan(v^2 / (R g)). If the
+    crowd's p85 speed on a cell is 120 km/h in an 80 zone, then the lean we
+    are promising is only reachable by breaking the law — so the model would
+    be selling a thrill that no law-abiding rider can have. Refusing the road
+    would be crude; the road may be excellent at 80. Instead, re-price it at
+    80 and let it compete on what it legally offers.
+
+    Since tan(theta) is proportional to v^2 at fixed radius:
+
+        tan(theta_legal) = tan(theta_crowd) * (v_limit / v_p85)^2
+
+    Only applied where a limit is known AND the crowd exceeds it by more than
+    `tol` (10%, which absorbs GPS speed error). A German autobahn with no
+    posted limit parses to NaN and is left alone — its road class carries the
+    meaning instead.
+
+    Returns a copy with `demand_p90` corrected and two new columns:
+    `demand_capped` (bool) and `demand_before_cap`.
+    """
+    c = cells.copy()
+    c["demand_capped"] = False
+    c["demand_before_cap"] = c["demand_p90"]
+    if osm is None or "osm_maxspeed_kmh" not in getattr(osm, "columns", []):
+        return c
+
+    lim = osm["osm_maxspeed_kmh"].reindex(c["morton_code"]).to_numpy(dtype=float)
+    v85 = c["crowd_v_p85"].to_numpy(dtype=float) * 3.6          # m/s -> km/h
+    dem = c["demand_p90"].to_numpy(dtype=float)
+
+    hit = np.isfinite(lim) & np.isfinite(v85) & np.isfinite(dem) & (v85 > lim * tol)
+    ratio = np.where(hit, np.clip(lim / np.where(v85 > 0, v85, np.nan), 0.0, 1.0), 1.0)
+    legal = np.degrees(np.arctan(np.tan(np.radians(dem)) * ratio ** 2))
+
+    c["demand_p90"] = np.where(hit, legal, dem)
+    c["demand_capped"] = hit
+    return c
+
+
+def mu_for_temp(temp_c, mu0: float = MU_DEFAULT, t_full: float = 20.0,
+                t_cold: float = 5.0, floor: float = 0.75):
+    """
+    Available grip falls on cold tarmac. Returns a temperature-derated mu.
+
+    HONESTY WARNING, and it must survive into the UI: this curve is an
+    engineering assumption from tyre behaviour, NOT something we measured
+    here. We tested it on BMW's own data and it did not replicate: across
+    5,253 corners spearman(lean, temp) = -0.016, and per-trip the lean/demand
+    ratio against temperature is rho = +0.22 at p = 0.24 over 29 trips. The
+    direction is right and the magnitude is undetectable at this sample size.
+
+    So this feeds the SAFETY readout only — grip headroom — and never the fun
+    score. The measured core of the model stays measured.
+    """
+    t = np.asarray(temp_c, dtype=float)
+    f = np.clip((t - t_cold) / (t_full - t_cold), 0.0, 1.0)
+    return mu0 * (floor + (1.0 - floor) * f)
+
+
 def symmetrise_edges(e: pd.DataFrame) -> pd.DataFrame:
     """
     graph_edges is directed because it is built from ride direction: an edge
@@ -267,7 +342,8 @@ def symmetrise_edges(e: pd.DataFrame) -> pd.DataFrame:
 
 def score_cells(cells: pd.DataFrame, rider: Rider, z_star: float,
                 tau: float = TAU_DEFAULT,
-                gate_sigmas: float = GATE_SIGMAS) -> pd.DataFrame:
+                gate_sigmas: float = GATE_SIGMAS,
+                osm: pd.DataFrame | None = None) -> pd.DataFrame:
     """
     One NumPy pass over all 27k rows. No loops, no apply, no iterrows —
     the dial moves in the UI and this has to re-run between two frames.
@@ -325,6 +401,24 @@ def score_cells(cells: pd.DataFrame, rider: Rider, z_star: float,
                  dtype=object),
         reason)
 
+    # --- BMW's own RED flags, now facts rather than inferences -----------
+    # Until OSM landed we guessed at these from telemetry. A motorway and a
+    # fast country road look similar in a lean channel; gravel and tarmac
+    # look identical. These are tags, not guesses.
+    red_reason = np.full(n, "", dtype=object)
+    if osm is not None:
+        idx = cells["morton_code"]
+        for col, mult, why in (
+                ("red_fast_boring", 0.45, "motorway or trunk road — fast, straight, BMW RED"),
+                ("red_inner_city", 0.45, "residential street — inner city and standstills, BMW RED"),
+                ("red_bad_surface", 0.55, "unpaved or cobbled surface, BMW RED")):
+            if col not in osm.columns:
+                continue
+            m = osm[col].reindex(idx).fillna(False).to_numpy(dtype=bool)
+            flow = np.where(m, flow * mult, flow)
+            red_reason = np.where(m & (red_reason == ""), why, red_reason)
+    flow = np.clip(flow, 0.0, 1.0)
+
     return pd.DataFrame({
         "cell": cells["morton_code"].to_numpy(),
         "lat": cells["lat"].to_numpy(dtype=float),
@@ -335,7 +429,10 @@ def score_cells(cells: pd.DataFrame, rider: Rider, z_star: float,
         "flow": flow,
         "gated": gated,
         "stop_rate": stop,
-        "reason": reason,
+        "reason": np.where(reason == "", red_reason, reason),
+        "demand_capped": (cells["demand_capped"].to_numpy(dtype=bool)
+                          if "demand_capped" in cells.columns
+                          else np.zeros(n, dtype=bool)),
     }).set_index("cell")
 
 
@@ -369,7 +466,8 @@ class Graph:
 def build_graph(edges: pd.DataFrame, cells: pd.DataFrame, rider: Rider,
                 z_star: float, tau: float = TAU_DEFAULT,
                 lam: float = LAMBDA_DEFAULT,
-                hard_gate: bool = True) -> Graph:
+                hard_gate: bool = True,
+                osm: pd.DataFrame | None = None) -> Graph:
     """
     Cost an edge by how well its DESTINATION cell fits the rider.
 
@@ -381,7 +479,7 @@ def build_graph(edges: pd.DataFrame, cells: pd.DataFrame, rider: Rider,
     hard_gate=True drops every edge whose destination is refused. Set it
     False only for the unreachable fallback, and say so in the UI.
     """
-    scored = score_cells(cells, rider, z_star, tau=tau)
+    scored = score_cells(cells, rider, z_star, tau=tau, osm=osm)
 
     nodes = np.array(sorted(set(edges["ci"]) | set(edges["cj"])), dtype=object)
     index = {c: i for i, c in enumerate(nodes)}
@@ -553,7 +651,8 @@ def route_a_to_b(A, B, rider: Rider, z_star: float,
                  cells: pd.DataFrame | None = None,
                  edges: pd.DataFrame | None = None,
                  lam: float = LAMBDA_DEFAULT,
-                 tau: float = TAU_DEFAULT) -> Route:
+                 tau: float = TAU_DEFAULT,
+                 osm: pd.DataFrame | None = None) -> Route:
     """
     A and B are (lat, lon). Builds the graph if one is not handed in — the
     app should hand one in and rebuild it only when the dial moves.
@@ -561,7 +660,7 @@ def route_a_to_b(A, B, rider: Rider, z_star: float,
     cells = load_cells() if cells is None else cells
     edges = load_edges() if edges is None else edges
     if graph is None:
-        graph = build_graph(edges, cells, rider, z_star, tau=tau, lam=lam)
+        graph = build_graph(edges, cells, rider, z_star, tau=tau, lam=lam, osm=osm)
 
     for pt, name in ((A, "start"), (B, "finish")):
         if not in_coverage(pt[0], pt[1]):
@@ -583,7 +682,7 @@ def route_a_to_b(A, B, rider: Rider, z_star: float,
         # every corridor was refused. Do not return nothing on stage: say so,
         # reopen the gate as a penalty, and label the route honestly.
         open_graph = build_graph(edges, cells, rider, z_star, tau=tau, lam=lam,
-                                 hard_gate=False)
+                                 hard_gate=False, osm=osm)
         si, ti = open_graph.index[a], open_graph.index[b]
         idx = _shortest(open_graph, si, ti)
         if idx is None:
@@ -763,8 +862,33 @@ if __name__ == "__main__":
 
     cells = load_cells()
     edges = load_edges()
+    osm = load_osm()
     print(f"grid {TAG}: {len(cells):,} cells, {len(edges):,} edges "
           f"(symmetrised), {len(set(edges.ci) | set(edges.cj)):,} nodes")
+
+    if osm is None:
+        print("  OSM layer ABSENT — run analysis/13_osm_layer.py. "
+              "No posted-limit check, no surface or road-class flags.")
+    else:
+        cells = apply_legal_speed(cells, osm)
+        capped = int(cells["demand_capped"].sum())
+        m = cells["demand_capped"]
+        before = cells.loc[m, "demand_before_cap"].mean()
+        after = cells.loc[m, "demand_p90"].mean()
+        known = osm["osm_maxspeed_kmh"].reindex(cells["morton_code"]).notna().mean()
+        share = capped / max(int((osm["osm_maxspeed_kmh"]
+                                  .reindex(cells["morton_code"]).notna()).sum()), 1)
+        print(f"  OSM: posted limit known for {known:.0%} of cells. "
+              f"{capped:,} of those ({share:.0%}) had a crowd p85 above the "
+              f"limit and were re-priced at the legal speed:")
+        print(f"       their mean demand falls {before:.2f} -> {after:.2f} deg "
+              f"({after-before:+.2f})")
+        for c, label in (("red_fast_boring", "motorway/trunk"),
+                         ("red_inner_city", "residential"),
+                         ("red_bad_surface", "unpaved/cobbled")):
+            if c in osm.columns:
+                m = osm[c].reindex(cells["morton_code"]).fillna(False)
+                print(f"       RED {label:<16s} {int(m.sum()):5,} cells ({m.mean():5.1%})")
 
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import flowstate as fs
@@ -784,8 +908,8 @@ if __name__ == "__main__":
     out = {}
     for name, z in (("Cruise", 0.15), ("Send it", 0.90)):
         t0 = time.time()
-        g = build_graph(edges, cells, rider, z, lam=lam)
-        r = route_a_to_b(A, B, rider, z, graph=g, cells=cells, edges=edges)
+        g = build_graph(edges, cells, rider, z, lam=lam, osm=osm)
+        r = route_a_to_b(A, B, rider, z, graph=g, cells=cells, edges=edges, osm=osm)
         d = direct_route(A, B, g)
         ms = (time.time() - t0) * 1000
         out[name] = r

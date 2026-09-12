@@ -24,3 +24,4 @@ flowstate/data/
 _m.txt
 _v.py
 _p.py
+flowstate/analysis/out/osm_cells*.parquet
