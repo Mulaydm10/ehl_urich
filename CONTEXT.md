@@ -16,8 +16,8 @@ The build now follows **`FLOWSTATE_Execution_Plan.docx`** (Parts A–E). Phase s
 |---|---|---|
 | 0 own the argument | the three answers, cold | numbers VERIFIED, rehearsal is human-side |
 | 1 edge table | `analysis/11_build_graph.py` | **DONE** — 21,130 nodes / 38,351 edges, LCC 93.9%, 8.7 s |
-| 2 router | `app/router.py` | **NEXT** — not started |
-| 3 wire into app | ROUTE tab + two-rider switch | not started |
+| 2 router | `app/router.py` | **DONE** — 60 ms/route, 4,761-node graph, 256 edges refused |
+| 3 wire into app | ROUTE tab + two-rider switch | **NEXT** — not started |
 | 4 X-hour loop | arc orienteering | not started |
 | 5 rebuild pitch | `docs/06_PITCH.md` holds disproved claims | not started |
 | 6 bake + rehearse | `data/cache/demo.pkl` | not started |
@@ -25,8 +25,9 @@ The build now follows **`FLOWSTATE_Execution_Plan.docx`** (Parts A–E). Phase s
 **Phase 1→2→3 is a strict serial chain and is the whole submission.** Phases 0, 3, 5, 6 are
 never to be cut; cut order if short is surprise index, then Phase 4, then peak-end.
 
-**`flowstate/docs/13_PHASE0_PHASE1.md` is the authoritative record** of what was measured,
-which plan claims survived checking, and which did not. Read it before quoting any number.
+**`flowstate/docs/13_PHASE0_PHASE1.md` (phases 0-1) and `docs/14_PHASE2_ROUTER.md` (phase 2)
+are the authoritative record** of what was measured, which plan claims survived checking, and
+which did not. Read both before quoting any number.
 
 ## The dataset is here now
 
@@ -94,6 +95,12 @@ One curve produces both **Fun Score** and **Rider Safety**.
   everywhere.
 - **Coverage is Bavaria only** (lat 47.38–48.03, lon 10.72–11.96). A Zürich start returns nothing.
   Bound the demo map and rehearse start points inside the box.
+- **The Thrill Dial moves the route on a MINORITY of A→B pairs.** Across 200 routable pairs the
+  median demand gain is −0.00°; the effect concentrates where a second corridor exists. Two
+  randomly clicked points will very likely give the same road twice, so rehearsed start points are
+  a requirement, not stagecraft. Best measured pair: (47.59, 11.75) → (47.73, 11.37).
+- **The plan's Phase 2 stop-check is unachievable.** Max detour anywhere in this network is
+  **1.137×**, not 1.5–1.8×, for three measured reasons. Do not quote 1.5–1.8×. See doc 14.
 
 ## Non-negotiables
 
@@ -122,6 +129,11 @@ Run scripts with `PYTHONIOENCODING=utf-8` — route names contain umlauts.
 **The venv is compulsory.** Use `/Users/mulaydm10/ehl_urich/.venv/bin/python` by absolute path
 (a relative `../.venv/bin/python` triggers a sys.prefix RuntimeWarning). Installed and verified:
 pandas 3.0.5, pyarrow 25.0.1, numpy 2.5.3, scipy 1.18.1.
+
+**The router runs on the 16-char grid (`_c16`); everything else stays on 18 (`_s2`).** Deliberate:
+at 18 chars the ride-derived graph has exactly one corridor between any two points, so no cost
+function can detour around anything. This reverses doc 13's "staying at CELL_CHARS=18" **for
+routing only** — scoring, the map and the corner work are unchanged. See doc 14.
 
 **Re-check `docs/09_DATA_MAP.md` for a re-exposed street address after any archive extraction
 over the repo** — unzipping the package silently reverted that redaction once already.

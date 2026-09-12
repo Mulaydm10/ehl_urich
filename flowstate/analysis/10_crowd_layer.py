@@ -48,7 +48,7 @@ import pandas as pd
 G = 9.81
 LAKE = os.environ.get("FS_LAKE")
 OUT = os.environ.get("FS_OUT")
-CELL_CHARS = 18
+CELL_CHARS = int(os.environ.get("FS_CELL_CHARS", 18))
 BUDGET_S = 22 * 60          # wall-clock guard; over this we stop and SAY SO
 STOP_V = 2.0                # m/s, "stopped"
 CV_MAX = 0.25               # speed coefficient of variation for "flowing"

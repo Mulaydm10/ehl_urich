@@ -17,4 +17,5 @@ flowstate/analysis/out/*.parquet
 # NDA: crowd-derived outputs carry BMW ride coordinates
 flowstate/analysis/out/crowd_*.csv
 flowstate/analysis/out/graph_edges*.parquet
+flowstate/analysis/out/route_calibration.csv
 flowstate/data/
