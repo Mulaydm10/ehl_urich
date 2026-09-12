@@ -21,6 +21,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import flowstate as F  # noqa: E402
+import route_tab  # noqa: E402
 
 try:
     import pydeck as pdk
@@ -28,9 +29,14 @@ try:
 except Exception:                                    # pragma: no cover
     HAS_PYDECK = False
 
+# MOBILE FIRST. This is served from the Mac and watched on a phone over
+# Tailscale, so the layout is centred (a phone viewport is narrower than the
+# centred column anyway, and it fixes the deck.gl zoom fit, which assumes a
+# 700 px canvas) and the sidebar starts collapsed — on a phone it is a
+# hamburger drawer, so nothing that matters may live in it.
 st.set_page_config(page_title="FLOWSTATE — BMW Motorrad",
-                   page_icon="🏍", layout="wide",
-                   initial_sidebar_state="expanded")
+                   page_icon="🏍", layout="centered",
+                   initial_sidebar_state="collapsed")
 
 # NOTE for whoever demos this: the deck.gl maps zoom on mouse wheel and
 # Streamlit's deck component ignores deck's controller config, so scroll the
@@ -48,6 +54,13 @@ st.markdown("""
   div[data-testid="stMetricValue"] {font-size: 1.5rem;}
   .fs-tag {display:inline-block;padding:2px 9px;border-radius:10px;font-size:0.72rem;
            font-weight:600;letter-spacing:.4px;margin-right:6px;}
+  /* phone: reclaim the margins, let metric rows wrap, keep tabs on one line */
+  @media (max-width: 640px) {
+    .block-container {padding-top: 1.1rem; padding-left: .7rem; padding-right: .7rem;}
+    div[data-testid="stMetricValue"] {font-size: 1.15rem;}
+    div[data-testid="stMetricLabel"] p {font-size: 0.72rem;}
+    button[data-baseweb="tab"] p {font-size: 0.78rem;}
+  }
 </style>
 """, unsafe_allow_html=True)
 
@@ -282,8 +295,17 @@ st.markdown(
     f"one curve that scores fun <i>and</i> safety, in degrees of lean</span>",
     unsafe_allow_html=True)
 
-TAB_REPLAY, TAB_DNA, TAB_DIAL, TAB_GRID = st.tabs(
-    ["🎬 RIDE REPLAY", "🧬 RIDER DNA", "🎚 THRILL DIAL", "🗺 ROAD GRID"])
+# ROUTE goes first: it is the only tab that answers the question BMW asked.
+TAB_ROUTE, TAB_REPLAY, TAB_DNA, TAB_DIAL, TAB_GRID = st.tabs(
+    ["🛣 ROUTE", "🎬 RIDE REPLAY", "🧬 RIDER DNA", "🎚 THRILL DIAL", "🗺 ROAD GRID"])
+
+
+# ==========================================================================
+# 0 — ROUTE  (use case A: A->B, use case B: a loop for X hours)
+# ==========================================================================
+
+with TAB_ROUTE:
+    route_tab.render()
 
 
 # ==========================================================================

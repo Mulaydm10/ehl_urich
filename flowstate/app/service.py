@@ -50,7 +50,9 @@ PRESET_ROUTES = [
     {"key": "lenggries_kochel", "label": "Lenggries -> Kochel",
      "a": (47.59, 11.75), "b": (47.73, 11.18), "why": "25% shared cells"},
     {"key": "kochel_tegernsee", "label": "Kochel -> Tegernsee",
-     "a": (47.66, 11.35), "b": (47.85, 11.85), "why": "a genuine second corridor exists"},
+     "a": (47.66, 11.35), "b": (47.85, 11.85),
+     "why": "where the gate bites: roads refused outright, and the only pair "
+            "measured where switching rider really moves the line (10% shared)"},
 ]
 
 PRESET_LOOPS = [

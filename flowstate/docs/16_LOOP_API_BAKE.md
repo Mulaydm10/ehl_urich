@@ -107,9 +107,14 @@ bike_4e1a9d64   skill 13.25  sigma 5.32  gate 23.89  agree 1.169x  grip 58%
 **Known weakness: switching rider does not change the route** on the preset
 pairs — all three return 53.0 km with identical mean demand. Not a caching
 bug; their gates differ but none bites on that road, and with one corridor per
-O-D pair the same path wins for everyone. **Frame the rider switch around the
-numbers (gate, grip, skill), not the line on the map**, or find a pair where
-the gate actually bites.
+O-D pair the same path wins for everyone.
+
+> **Superseded by doc 17.** That was measured on the wrong pair. Phase 3 found
+> one where the gate does bite: on **Kochel → Tegernsee** cell overlap between
+> `userA` and `bike_4e1a9d64` is 0.730 at Cruise and **0.105 at Send it**, with
+> 3–5 roads refused outright depending on the profile. The rider switch is
+> demonstrable on the map after all — on that pair. The warning above still
+> holds for Lenggries → Bad Tölz and Lenggries → Kochel.
 
 ## The grip bug, and why it matters
 

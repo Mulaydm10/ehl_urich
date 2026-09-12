@@ -17,20 +17,20 @@ The build now follows **`FLOWSTATE_Execution_Plan.docx`** (Parts A–E). Phase s
 | 0 own the argument | the three answers, cold | numbers VERIFIED, rehearsal is human-side |
 | 1 edge table | `analysis/11_build_graph.py` | **DONE** |
 | 2 router | `app/router.py` | **DONE** — 60 ms/route |
-| 3 wire into app | ROUTE tab + rider switch | **NEXT — nothing in the app uses the router** |
+| 3 wire into app | ROUTE tab + rider switch | **DONE** — `app/route_tab.py`, mobile-first |
 | 4 X-hour loop | `route_loop()` | **DONE** — 16/16 starts, ~150 ms |
-| 5 rebuild pitch | `docs/06_PITCH.md` holds disproved claims | **not started — do not cut** |
+| 5 rebuild pitch | `docs/06_PITCH.md` holds disproved claims | **NEXT — do not cut** |
 | 6 bake + rehearse | `data/cache/demo.pkl` | bake **DONE**; rehearsal not started |
 | + external sources | OSM, not in the original plan | **DONE** |
 
 Beyond the plan, also done: `app/service.py` (the API the UI calls),
-`analysis/13_osm_layer.py`, `analysis/14_bake_demo.py`.
+`analysis/13_osm_layer.py`, `analysis/14_bake_demo.py`, `run_demo.sh`.
 
 **Phase 1→2→3 is a strict serial chain and is the whole submission.** Phases 0, 3, 5, 6 are
 never to be cut; cut order if short is surprise index, then Phase 4, then peak-end.
 
-**The authoritative record is docs 13-16** — 13 (phases 0-1), 14 (the router), 15 (OSM),
-16 (the loop, the API, the bake). They record what was measured, which plan claims survived
+**The authoritative record is docs 13-17** — 13 (phases 0-1), 14 (the router), 15 (OSM),
+16 (the loop, the API, the bake), 17 (the ROUTE tab). They record what was measured, which plan claims survived
 checking and which did not. Read them before quoting any number.
 
 ## The dataset is here now
@@ -105,9 +105,10 @@ One curve produces both **Fun Score** and **Rider Safety**.
   a requirement, not stagecraft. Best measured pair: (47.59, 11.75) → (47.73, 11.37).
 - **The plan's Phase 2 stop-check is unachievable.** Max detour anywhere in this network is
   **1.137×**, not 1.5–1.8×, for three measured reasons. Do not quote 1.5–1.8×. See doc 14.
-- **Switching rider does not change the route** on the preset pairs — all three profiles return
-  53.0 km with identical demand. Their gates differ but none bites on that road. Frame the rider
-  switch around the numbers (gate, grip, skill), not the line on the map. See doc 16.
+- ~~Switching rider does not change the route~~ **partly wrong — it was the wrong pair.** On
+  Lenggries -> Bad Tolz and Lenggries -> Kochel all three profiles return the same road, but on
+  **Kochel -> Tegernsee the gate bites**: userA vs bike_4e1a9d64 share 73% of cells at Cruise and
+  only **10% at Send it**, with 3-5 roads refused outright. Demo the rider switch there. See doc 17.
 - **Weather stays dropped, and the cold-grip idea did NOT replicate**: spearman(lean, temp)
   = −0.016 over 5,253 corners; per-trip +0.224 at p=0.24 over 29 trips. `mu_for_temp` ships as a
   labelled engineering assumption feeding the safety readout only, never the fun score.
@@ -120,6 +121,19 @@ OSM join, calibrated riders, a 17,345-way offline road basemap, and 21 pre-solve
 `service.init()` loads it in **12 ms**; a dial change costs **20-37 ms**.
 **Rebake after any change to the router, the cell table or the OSM layer:**
 `$V analysis/14_bake_demo.py` (2.4 s).
+
+## Serving the demo
+
+`./run_demo.sh` from `flowstate/`. Streamlit runs on this Mac and the phone opens
+**http://100.80.210.100:8501** over Tailscale. `--lan` and `--local` are fallbacks;
+conference Wi-Fi usually isolates clients, so prefer the phone's own hotspot with the
+Mac joined to it.
+
+**Never launch with `--server.address=0.0.0.0`.** It binds every interface, and on the
+conference network this Mac also holds a routable public address - Streamlit happily
+printed `External URL: http://141.70.42.255:8501`, which is an NDA-backed app on the
+open internet. `run_demo.sh` binds the tailnet address and nothing else. Same reason,
+still absolute: **never `tailscale funnel` / `tailscale serve --funnel`.**
 
 ## Non-negotiables
 
