@@ -1,0 +1,80 @@
+Read CONTEXT.md, then research/FINDINGS.md, then flowstate/START_HERE.md.
+
+You are on the Mac mini — this is the compute box (314 GB free). Deadline is
+Sunday 13 Sep 12:00 CEST.
+
+Do these in order, reporting after each:
+
+1. Set up the env: uv venv .venv && uv pip install pandas pyarrow numpy scipy
+   matplotlib. Confirm derived/*.parquet load (S1_cells should be 72,563 rows).
+
+2. Settle the ABS question. flowstate treats `ridingabsbraking` as an
+   intervention event and the Grossglockner demo moment depends on it;
+   research/FINDINGS.md says it is a status code; BMW's schema says 0/1 but
+   the data holds 0-3. derived/S1_trips.parquet has `abs_nz` and `asc_vals` —
+   use them to test whether these behave like events or like states. This
+   decides whether the headline safety finding is real. Do not skip it.
+
+3. Check whether derived/*.parquet already unblocks F10 and F29-F33 (the six
+   crowd features flagged BLOCKED in flowstate/analysis/out/feature_verdicts.csv).
+   They were built from the FULL crowd lake, not the truncated 384 MB archive,
+   so the "BMW crowd data" criterion may already be satisfiable. Report which
+   of the six you can now compute.
+
+4. Get flowstate/app/streamlit_app.py running against whatever data is
+   available, and tell me exactly what is missing to make it run fully.
+
+Rules — do not break these:
+- Never commit flowstate/analysis/out/planned_route*.csv or
+  flowstate/session/transcript.* — personal data, already gitignored.
+- Never score speed or lap times.
+- Run python with PYTHONIOENCODING=utf-8 (umlauts in route names).
+- flowstate/docs/08-12 override docs 02-07 where they disagree.
+- Left/right lean asymmetry was already tested and REJECTED. Do not rebuild it.
+- export ENTIRE_TOKEN_STORE=file (already in ~/.zshrc) — Entire needs it there.
+
+Steps 2 and 3 are the highest-value work left: one decides whether your best slide survives scrutiny, the other may hand you a judged criterion you currently believe is blocked.
+
+---
+
+what are next steps , tell me dont do anythiing
+
+---
+
+if u  need any thing tell me
+
+---
+
+will do step 4 later , i will give u the data wait , open abrowser session there i will give it
+
+---
+
+ok on the discord here is a channel check for bmw data there and load it and then compelte step 3 and sttep 4 and then give me update , remember token optimisaton as much as possible
+
+---
+
+i have already opened just read through the chat
+
+---
+
+its open in mcp playwright session
+
+---
+
+what are u doing ?
+
+---
+
+the passwrd is given in the same chat read it download it locally both and then transfer to our repo folder and then move ahead with operations
+
+---
+
+continue
+
+---
+
+why are permissions denied to automode
+
+---
+
+i changed mode now try
