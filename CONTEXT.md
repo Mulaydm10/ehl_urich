@@ -15,19 +15,23 @@ The build now follows **`FLOWSTATE_Execution_Plan.docx`** (Parts A–E). Phase s
 | Phase | Deliverable | Status |
 |---|---|---|
 | 0 own the argument | the three answers, cold | numbers VERIFIED, rehearsal is human-side |
-| 1 edge table | `analysis/11_build_graph.py` | **DONE** — 21,130 nodes / 38,351 edges, LCC 93.9%, 8.7 s |
-| 2 router | `app/router.py` | **DONE** — 60 ms/route, 4,761-node graph, 256 edges refused |
-| 3 wire into app | ROUTE tab + two-rider switch | **NEXT** — not started |
-| 4 X-hour loop | arc orienteering | not started |
-| 5 rebuild pitch | `docs/06_PITCH.md` holds disproved claims | not started |
-| 6 bake + rehearse | `data/cache/demo.pkl` | not started |
+| 1 edge table | `analysis/11_build_graph.py` | **DONE** |
+| 2 router | `app/router.py` | **DONE** — 60 ms/route |
+| 3 wire into app | ROUTE tab + rider switch | **NEXT — nothing in the app uses the router** |
+| 4 X-hour loop | `route_loop()` | **DONE** — 16/16 starts, ~150 ms |
+| 5 rebuild pitch | `docs/06_PITCH.md` holds disproved claims | **not started — do not cut** |
+| 6 bake + rehearse | `data/cache/demo.pkl` | bake **DONE**; rehearsal not started |
+| + external sources | OSM, not in the original plan | **DONE** |
+
+Beyond the plan, also done: `app/service.py` (the API the UI calls),
+`analysis/13_osm_layer.py`, `analysis/14_bake_demo.py`.
 
 **Phase 1→2→3 is a strict serial chain and is the whole submission.** Phases 0, 3, 5, 6 are
 never to be cut; cut order if short is surprise index, then Phase 4, then peak-end.
 
-**`flowstate/docs/13_PHASE0_PHASE1.md` (phases 0-1) and `docs/14_PHASE2_ROUTER.md` (phase 2)
-are the authoritative record** of what was measured, which plan claims survived checking, and
-which did not. Read both before quoting any number.
+**The authoritative record is docs 13-16** — 13 (phases 0-1), 14 (the router), 15 (OSM),
+16 (the loop, the API, the bake). They record what was measured, which plan claims survived
+checking and which did not. Read them before quoting any number.
 
 ## The dataset is here now
 
@@ -101,6 +105,21 @@ One curve produces both **Fun Score** and **Rider Safety**.
   a requirement, not stagecraft. Best measured pair: (47.59, 11.75) → (47.73, 11.37).
 - **The plan's Phase 2 stop-check is unachievable.** Max detour anywhere in this network is
   **1.137×**, not 1.5–1.8×, for three measured reasons. Do not quote 1.5–1.8×. See doc 14.
+- **Switching rider does not change the route** on the preset pairs — all three profiles return
+  53.0 km with identical demand. Their gates differ but none bites on that road. Frame the rider
+  switch around the numbers (gate, grip, skill), not the line on the map. See doc 16.
+- **Weather stays dropped, and the cold-grip idea did NOT replicate**: spearman(lean, temp)
+  = −0.016 over 5,253 corners; per-trip +0.224 at p=0.24 over 29 trips. `mu_for_temp` ships as a
+  labelled engineering assumption feeding the safety readout only, never the fun score.
+
+## The demo runs off a bake, not the repo
+
+**A fresh clone cannot run a demo.** The lake and every derived parquet are gitignored and live
+only on this Mac. `data/cache/demo.pkl` (5.2 MB) is the freeze artefact: scored cells, edges, the
+OSM join, calibrated riders, a 17,345-way offline road basemap, and 21 pre-solved presets.
+`service.init()` loads it in **12 ms**; a dial change costs **20-37 ms**.
+**Rebake after any change to the router, the cell table or the OSM layer:**
+`$V analysis/14_bake_demo.py` (2.4 s).
 
 ## Non-negotiables
 
