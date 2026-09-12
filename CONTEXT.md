@@ -19,7 +19,7 @@ The build now follows **`FLOWSTATE_Execution_Plan.docx`** (Parts A–E). Phase s
 | 2 router | `app/router.py` | **DONE** — 60 ms/route |
 | 3 wire into app | ROUTE tab + rider switch | **DONE** — `app/route_tab.py`, mobile-first |
 | 4 X-hour loop | `route_loop()` | **DONE** — 16/16 starts, ~150 ms |
-| 5 rebuild pitch | `docs/06_PITCH.md` holds disproved claims | **NEXT — do not cut** |
+| 5 rebuild pitch | `docs/06_PITCH.md` holds disproved claims | **audited in doc 18; rewrite not started — do not cut** |
 | 6 bake + rehearse | `data/cache/demo.pkl` | bake **DONE**; rehearsal not started |
 | + external sources | OSM, not in the original plan | **DONE** |
 
@@ -29,8 +29,8 @@ Beyond the plan, also done: `app/service.py` (the API the UI calls),
 **Phase 1→2→3 is a strict serial chain and is the whole submission.** Phases 0, 3, 5, 6 are
 never to be cut; cut order if short is surprise index, then Phase 4, then peak-end.
 
-**The authoritative record is docs 13-17** — 13 (phases 0-1), 14 (the router), 15 (OSM),
-16 (the loop, the API, the bake), 17 (the ROUTE tab). They record what was measured, which plan claims survived
+**The authoritative record is docs 13-18** — 13 (phases 0-1), 14 (the router), 15 (OSM),
+16 (the loop, the API, the bake), 17 (the ROUTE tab), 18 (the pitch audit). They record what was measured, which plan claims survived
 checking and which did not. Read them before quoting any number.
 
 ## The dataset is here now
@@ -94,7 +94,13 @@ One curve produces both **Fun Score** and **Rider Safety**.
 
 - **The "three trip ids" forensics card is wrong** — measured 24 cells, median 5 distinct rides.
   Do not offer it to BMW until re-derived. See doc 13.
-- **Pitch slide 2 is still dead** (asymmetry rejected) and `docs/06_PITCH.md` still contains it.
+- **`docs/06_PITCH.md` is far more broken than "slide 2 is dead".** Audited line by line in
+  **doc 18**: six claims are disproved and **all five demo beats are unperformable** - they
+  describe greyed-out dial options, per-km traffic-light counts, counter-clockwise loop
+  routing, time-aware weather and Skill Quests, none of which exist. Slide 6 quotes an
+  **ablation that was never run**; slide 7 quotes **leave-one-rider-out**, which is impossible
+  with one rider in the lake. Presented as written, the live demo contradicts the slides on
+  stage. Doc 18 lists what survives and the six measured claims that replace the rest.
 - **Two corner tables disagree**: 5,747 corners at r=0.730 vs 5,253 at r=0.765. Pick one, use it
   everywhere.
 - **Coverage is Bavaria only** (lat 47.38–48.03, lon 10.72–11.96). A Zürich start returns nothing.
@@ -134,6 +140,41 @@ conference network this Mac also holds a routable public address - Streamlit hap
 printed `External URL: http://141.70.42.255:8501`, which is an NDA-backed app on the
 open internet. `run_demo.sh` binds the tailnet address and nothing else. Same reason,
 still absolute: **never `tailscale funnel` / `tailscale serve --funnel`.**
+
+## Standing decisions — 2026-09-13 ~01:30
+
+**The Streamlit UI is FROZEN.** `route_tab.py` works and is verified; the intended product is a
+native mobile app, so no further effort goes into Streamlit pixels. Ideas explicitly parked:
+tap-the-map to pick points (`st.pydeck_chart(on_select="rerun")` does support it in 1.63 - verified,
+just not worth building here) and any restyling. **New work goes into the backend.**
+
+**Leaflet / folium was evaluated and REJECTED.** Two measured blockers, not opinions:
+folium emits the Leaflet library itself from a CDN (10 external URLs, including
+`cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js`), so with the network unplugged the map is
+blank, not degraded - and that is the hard demo requirement; and the basemap is 17,345 ways /
+76,116 points, which deck.gl pushes to the GPU as WebGL while Leaflet would draw on the CPU.
+It also fixes nothing in the model: rendering is not the limitation.
+
+**The geo stack is SAFE to install - the earlier GDAL warning was wrong.** Probed in a throwaway
+venv at `/tmp/geoprobe` (never the project venv): `shapely 2.1.2, networkx 3.6.1, geopandas 1.1.4,
+osmnx 2.1.1, rasterio 1.5.1, pyproj 3.8.0` all install from **wheels only**
+(`--only-binary=:all:`) on Python 3.14 arm64, carrying **GDAL 3.12.4 bundled inside the wheels**,
+on the same numpy 2.5.3 we already run. No Homebrew GDAL, no source build, no environment risk.
+A CRS round-trip through EPSG:32632 was verified. Install with
+`uv pip install --only-binary=:all: ...` and nothing else.
+
+**What each is actually for, ranked** (nothing committed to yet):
+1. **osmnx** - the only one that fixes a real limitation. Our graph is built from ride traces, so it
+   is a bundle of corridors, not a road network: one path per O-D pair, hence the 1.137x detour
+   ceiling and a dial that does nothing on most pairs. The strong design is **OSM for topology,
+   BMW crowd for scoring** - real alternatives, chosen by real telemetry. Most invasive: it touches
+   `build_graph`, the cell-to-node join, the bake, and every number in docs 14 and 16.
+2. **rasterio** - gradient, a BMW GREEN flag we cannot score today because 46-51% of lake elevation
+   is zero. Needs a DEM fetched once, kept local and gitignored.
+3. **shapely** - snap the drawn path to real OSM way geometry instead of 600x400 m cell centres.
+   Model unchanged; the line stops looking approximate. (Borderline UI, so parked with the freeze.)
+4. **geopandas / networkx** - skip. `cKDTree` and `scipy.sparse.csgraph` already do these jobs and
+   are faster. networkx earns a place only if we want Yen's k-shortest-paths instead of osmnx.
 
 ## Non-negotiables
 
