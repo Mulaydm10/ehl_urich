@@ -24,16 +24,8 @@ DEFINITIONS (stated so the numbers are reproducible):
                 (v > 5 m/s, dt in [0.8, 1.3] s, raw heading valid) -- so a mostly
                 straight cell honestly scores low.
   crowd_lean_*  quantiles of |sensorsbankingangle| over points with v > 0.5 m/s.
-  crowd_v_*     quantiles of speed over MOVING points (v >= 0.5 m/s), same threshold
-                as the side-stand guard.  Measured reason: a bike parked with the
-                logger running dumps thousands of ~0 m/s samples into one cell (worst
-                observed: 12,159 points in a single 153x102 m cell, ~3.4 h of dwell),
-                which drags point-weighted speed to near zero in cells that merely
-                happen to contain a car park or a cafe.  The stopping story is carried
-                by stop_rate (traversal-weighted, so it cannot be flooded) and by
-                dwell_share.
-  dwell_share   share of valid-speed points in the cell below 0.5 m/s.  High values
-                flag a parking/standstill cell rather than a riding cell.
+  crowd_v_*     quantiles of speed over ALL points in the cell (stops included,
+                so p50 sags where traffic really stops and p85 is the free-flow proxy).
   n_corners     distinct corner blocks (09 recipe: >=3 contiguous same-sign-yaw
                 samples, |yaw| > 0.04 rad/s, peak required lean in [3, 55] deg)
                 that put at least one point in the cell.
@@ -54,8 +46,8 @@ import numpy as np
 import pandas as pd
 
 G = 9.81
-LAKE = r"F:\bmw\data\raw\salvaged\anonymizedDataLake"
-OUT = r"F:\bmw\analysis\out"
+LAKE = os.environ.get("FS_LAKE")
+OUT = os.environ.get("FS_OUT")
 CELL_CHARS = 18
 BUDGET_S = 22 * 60          # wall-clock guard; over this we stop and SAY SO
 STOP_V = 2.0                # m/s, "stopped"
@@ -168,15 +160,9 @@ def process_ride(path, ride_idx, cell_map):
     code = np.fromiter((cell_map.setdefault(s, len(cell_map)) for s in cells),
                        dtype=np.int64, count=n).astype(np.int32)
 
-    # moving-only speed (parked-logger guard) + dwell flag
-    vm = np.where(v >= 0.5, v, np.nan)
-    park = np.where(np.isfinite(v), (v < 0.5).astype(float), np.nan)
-
     P = pd.DataFrame({
         "cell": code,
         "v": v.astype(np.float32),
-        "vm": vm.astype(np.float32),
-        "park": park.astype(np.float32),
         "lean": lean.astype(np.float32),
         "req": np.abs(req).astype(np.float32),
         "radius": radius.astype(np.float32),
@@ -276,9 +262,8 @@ def main():
     g = P.groupby("cell", sort=True)
     grid = g.agg(n_points=("v", "size"), abs_events=("absf", "sum"),
                  elev_mean=("elev", "mean"), grade_mean=("grade", "mean"),
-                 dwell_share=("park", "mean"),
                  lat=("lat", "mean"), lon=("lon", "mean"))
-    qv = g["vm"].quantile([0.50, 0.85]).unstack()
+    qv = g["v"].quantile([0.50, 0.85]).unstack()
     grid["crowd_v_p50"], grid["crowd_v_p85"] = qv[0.50], qv[0.85]
     ql = g["lean"].quantile([0.50, 0.90]).unstack()
     grid["crowd_lean_p50"], grid["crowd_lean_p90"] = ql[0.50], ql[0.90]
@@ -300,8 +285,8 @@ def main():
     grid = grid.reset_index(drop=True)
     grid = grid[["morton_code", "n_rides", "n_points", "n_corners", "crowd_v_p50",
                  "crowd_v_p85", "crowd_lean_p50", "crowd_lean_p90", "demand_p50",
-                 "demand_p90", "radius_p50", "flow_index", "stop_rate", "dwell_share",
-                 "abs_events", "grade_mean", "elev_mean", "lat", "lon"]]
+                 "demand_p90", "radius_p50", "flow_index", "stop_rate", "abs_events",
+                 "grade_mean", "elev_mean", "lat", "lon"]]
     os.makedirs(OUT, exist_ok=True)
     tag = a.tag
     grid.to_parquet(os.path.join(OUT, "crowd_grid%s.parquet" % tag), index=False)
@@ -316,20 +301,9 @@ def main():
              grid.n_rides.quantile(.95), grid.n_rides.max()))
     print("          %s cells carry a corner | %s ABS(code 3) samples total"
           % (f"{(grid.n_corners > 0).sum():,}", f"{int(grid.abs_events.sum()):,}"))
-    print("          dwell_share > 0.5 (parked-logger cells): %s"
-          % f"{int((grid.dwell_share > 0.5).sum()):,}")
-
-    # physics cross-check: does the crowd actually lean what the geometry demands?
-    ck = grid[(grid.n_rides >= 5) & grid.demand_p90.notna() & grid.crowd_lean_p90.notna()
-              & (grid.demand_p90 > 0)]
-    print("PHYSICS CHECK on %s cells: corr(demand_p90, crowd_lean_p90) = %.3f | "
-          "median used/required = %.2f"
-          % (f"{len(ck):,}", ck.demand_p90.corr(ck.crowd_lean_p90),
-             (ck.crowd_lean_p90 / ck.demand_p90).median()))
 
     # ---------------- gems ----------------
-    elig = ((grid.n_rides >= 5) & (grid.n_corners >= 1) & (grid.demand_p90 >= 10)
-            & (grid.dwell_share.fillna(0) < 0.5))   # not a car park
+    elig = (grid.n_rides >= 5) & (grid.n_corners >= 1) & (grid.demand_p90 >= 10)
     gem = grid[elig].copy()
     dsc = gem.demand_p90.clip(0, 45) / 45.0
     fsc = gem.flow_index.fillna(0)
@@ -354,42 +328,24 @@ def main():
                  r.crowd_v_p85, r.radius_p50, r.n_rides))
 
     # ---------------- hazards ----------------
-    # Raw abs/traversal is very noisy at n_rides=5 (measured: mean abs/traversal falls
-    # 0.0090 -> 0.0014 going from the 5-9 ride band to the 50+ band, i.e. the ranking is
-    # dominated by small-n cells).  So we also publish a shrunk rate that pulls a cell
-    # toward the global base rate until it has earned its own evidence.
     hz = grid[grid.n_rides >= 5].copy()
     hz["abs_per_traversal"] = hz.abs_events / hz.n_rides
     hz["abs_per_1k_points"] = 1000.0 * hz.abs_events / hz.n_points
-    base = grid.abs_events.sum() / max(grid.n_rides.sum(), 1)     # global ABS per traversal
-    K = 20.0                                                      # prior strength, traversals
-    hz["abs_per_traversal_shrunk"] = (hz.abs_events + K * base) / (hz.n_rides + K)
     hz = hz[hz.abs_events > 0].sort_values(["abs_per_traversal", "n_rides"],
                                            ascending=[False, False])
-    hz_out = hz[["morton_code", "lat", "lon", "abs_per_traversal",
-                 "abs_per_traversal_shrunk", "abs_events", "n_rides", "abs_per_1k_points",
-                 "stop_rate", "flow_index", "crowd_v_p50", "crowd_v_p85", "demand_p90",
-                 "radius_p50", "grade_mean", "elev_mean", "n_points"]].round(5)
+    hz_out = hz[["morton_code", "lat", "lon", "abs_per_traversal", "abs_events", "n_rides",
+                 "abs_per_1k_points", "stop_rate", "flow_index", "crowd_v_p50", "crowd_v_p85",
+                 "demand_p90", "radius_p50", "grade_mean", "elev_mean", "n_points"]].round(4)
     hz_out.to_csv(os.path.join(OUT, "crowd_hazards%s.csv" % tag), index=False)
     print("\nwrote crowd_hazards%s.csv (%d cells with >=5 rides AND >=1 ABS event)"
           % (tag, len(hz_out)))
-    print("  file is sorted by raw abs_per_traversal as specified; global base rate"
-          " %.5f ABS/traversal, shrinkage K=%.0f" % (base, K))
-    print("TOP 5 HAZARDS (raw abs/traversal)")
+    print("TOP 5 HAZARDS")
     print("  %-3s %9s %9s %8s %5s %6s %6s %6s"
           % ("#", "lat", "lon", "abs/trav", "abs", "rides", "stop", "v_p85"))
     for k, (_, r) in enumerate(hz_out.head(5).iterrows(), 1):
         print("  %-3d %9.5f %9.5f %8.3f %5d %6d %6.2f %6.1f"
               % (k, r.lat, r.lon, r.abs_per_traversal, r.abs_events, r.n_rides,
                  r.stop_rate, r.crowd_v_p85))
-    hz_s = hz_out.sort_values("abs_per_traversal_shrunk", ascending=False)
-    print("TOP 5 HAZARDS (shrunk - use these, they survive the small-n check)")
-    print("  %-3s %9s %9s %8s %8s %5s %6s %6s"
-          % ("#", "lat", "lon", "shrunk", "raw", "abs", "rides", "v_p85"))
-    for k, (_, r) in enumerate(hz_s.head(5).iterrows(), 1):
-        print("  %-3d %9.5f %9.5f %8.4f %8.3f %5d %6d %6.1f"
-              % (k, r.lat, r.lon, r.abs_per_traversal_shrunk, r.abs_per_traversal,
-                 r.abs_events, r.n_rides, r.crowd_v_p85))
 
     if sampled or truncated:
         print("\n" + "!" * 78)

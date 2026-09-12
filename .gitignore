@@ -8,4 +8,13 @@ flowstate/analysis/out/planned_routes.csv
 flowstate/analysis/out/planned_route_dna.csv
 flowstate/session/
 data/raw/
+**/data/raw/
+data/downloads/
+*.zip
+flowstate/analysis/out/*.parquet
 *.parquet.raw
+
+# NDA: crowd-derived outputs carry BMW ride coordinates
+flowstate/analysis/out/crowd_*.csv
+flowstate/analysis/out/graph_edges*.parquet
+flowstate/data/
