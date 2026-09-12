@@ -79,13 +79,16 @@ def init(bake: Path | None = None, force_parquet: bool = False) -> dict:
         with open(bake, "rb") as f:
             d = pickle.load(f)
         _S = {**d, "graphs": {}, "source": f"bake {bake.name}"}
+        if _S.get("joy") is None:               # a bake from before Phase 1
+            _S["joy"] = _load_joy()
     else:
         cells = R.load_cells()
         osm = R.load_osm()
         cells = R.apply_legal_speed(cells, osm)
         _S = {"cells": cells, "edges": R.load_edges(), "osm": osm,
               "riders": _build_riders(cells), "basemap": None,
-              "precomputed": {}, "graphs": {}, "source": "parquet"}
+              "precomputed": {}, "graphs": {}, "source": "parquet",
+              "joy": _load_joy()}
 
     _S["loaded_s"] = time.time() - t0
     return status()
@@ -97,7 +100,8 @@ def status() -> dict:
             "cells": len(s["cells"]), "edges": len(s["edges"]),
             "riders": len(s["riders"]), "osm": s["osm"] is not None,
             "basemap_ways": (len(s["basemap"]) if s.get("basemap") else 0),
-            "precomputed": len(s.get("precomputed", {}))}
+            "precomputed": len(s.get("precomputed", {})),
+            "joy_rides": (len(s["joy"]["rides"]) if s.get("joy") else 0)}
 
 
 def _need() -> dict:
@@ -304,3 +308,105 @@ def cells_layer(rider_key: str = "userA", z_star: float = 0.5,
              "demand": float(d), "gated": bool(x)}
             for a, o, f, d, x in zip(sub["lat"], sub["lon"], sub["flow"],
                                      sub["demand"], sub["gated"])]
+
+
+# --------------------------------------------------------------------------
+# the Joy Meter — fun measured on a ride after it happened (Phase 1, doc 20)
+# --------------------------------------------------------------------------
+
+JOY_RIDES = ROOT / "analysis" / "out" / "joy_rides.parquet"
+JOY_TEST = ROOT / "analysis" / "out" / "joy_test.json"
+
+_JOY_WORDS = {
+    "E_envelope": "how much of the grip circle you used",
+    "R_reversals_km": "left-right changes of lean per km",
+    "T_throttle_entropy": "how much you worked the throttle",
+    "U_uninterrupted": "share of distance you kept moving above 15 km/h",
+}
+
+
+def _load_joy() -> dict | None:
+    """Per-ride components + the pre-registered test result, or None if not built."""
+    import json
+    if not (JOY_RIDES.exists() and JOY_TEST.exists()):
+        return None
+    return {"rides": pd.read_parquet(JOY_RIDES),
+            "test": json.loads(JOY_TEST.read_text())}
+
+
+def _joy_rides_for(rider_key: str) -> pd.DataFrame:
+    j = _need().get("joy")
+    if not j:
+        return pd.DataFrame()
+    d = j["rides"]
+    if rider_key.startswith("bike_"):
+        return d[(d["rider"] == "userA")
+                 & d["bike"].fillna("").str.startswith(rider_key[5:])]
+    return d[d["rider"] == rider_key]
+
+
+def rider_joy(rider_key: str = "userA") -> dict:
+    """
+    What the Joy Meter says about a rider, AND whether the meter can be
+    trusted. The verdict travels with the number on purpose: at WEAK it is a
+    measurement to show, not a score to route on.
+    """
+    j = _need().get("joy")
+    person = "userA" if rider_key.startswith("bike_") else rider_key
+    if not j or person not in j["test"]:
+        return {"ok": False, "note": "Joy Meter not built — run analysis/15_joy_meter.py."}
+    t = j["test"][person]
+    rides = _joy_rides_for(rider_key)
+    lm = [r for r in t["table"] if r["test"] == "length-matched"]
+    comp = {r["component"]: {"auc": r["auc"], "ci": [r["ci_lo"], r["ci_hi"]]} for r in lm}
+    head = comp.get("joy", {})
+    scope = ("all of User A's rides — this bike alone has too few to test"
+             if rider_key.startswith("bike_") else "this rider's rides")
+    sentences = [
+        f"Measured on {int(rides['joy'].notna().sum())} rides, from telemetry alone.",
+        f"Tested on {scope}: commutes against same-length stretches of long rides. "
+        f"The meter separates them with AUC {head.get('auc', float('nan')):.2f} "
+        f"(95% CI {head.get('ci', [np.nan, np.nan])[0]:.2f}–"
+        f"{head.get('ci', [np.nan, np.nan])[1]:.2f}): verdict {t['verdict']}.",
+    ]
+    # a component only "carries" the meter if it clears chance for EVERY rider
+    # tested; one that flips direction between riders is named as such
+    people = [p for p in ("userA", "userC") if p in j["test"]]
+    lm_all = {p: {r["component"]: r for r in j["test"][p]["table"]
+                  if r["test"] == "length-matched"} for p in people}
+    replicated = [k for k in _JOY_WORDS
+                  if all(lm_all[p].get(k, {}).get("ci_lo", 0) > 0.5 for p in people)]
+    flipped = [k for k in _JOY_WORDS
+               if len({lm_all[p][k]["auc"] > 0.5 for p in people if k in lm_all[p]}) > 1]
+    if replicated:
+        sentences.append("What carries it on both riders: "
+                         + "; ".join(_JOY_WORDS[k] for k in replicated) + ".")
+    if flipped:
+        sentences.append("Points the opposite way on the other rider, so not trusted: "
+                         + "; ".join(_JOY_WORDS[k] for k in flipped) + ".")
+    g = t.get("grip_budget", {})
+    if g.get("verdict") in ("FAIL", "WEAK"):
+        sentences.append(
+            f"Tested and not supported: that ABS fires because grip was already spent "
+            f"cornering (AUC {g['auc']:.2f}, CI {g['ci_lo']:.2f}–{g['ci_hi']:.2f}).")
+    return {"ok": True, "rider": rider_key, "verdict": t["verdict"],
+            "length_flag": t["length_flag"], "n_rides": int(rides["joy"].notna().sum()),
+            "median_joy": float(rides["joy"].median()) if len(rides) else float("nan"),
+            "components": comp, "grip_budget": g, "explain": sentences}
+
+
+def ride_joy(trip_id: str) -> dict:
+    """One ride's components and joy (z-score against its own rider's rides)."""
+    j = _need().get("joy")
+    if not j:
+        return {"ok": False, "note": "Joy Meter not built."}
+    d = j["rides"]
+    row = d[d["trip_id"].astype(str) == str(trip_id)]
+    if row.empty:
+        return {"ok": False, "note": f"No ride {trip_id} in the Joy table."}
+    r = row.iloc[0]
+    keys = ("km", "minutes", "joy", "lean_p90", "loop_closure_km",
+            "E_envelope", "R_reversals_km", "T_throttle_entropy", "U_uninterrupted")
+    return {"ok": True, "rider": r["rider"], "trip_id": str(trip_id),
+            **{k: (float(r[k]) if pd.notna(r[k]) else None) for k in keys},
+            "verdict": j["test"].get(r["rider"], {}).get("verdict")}

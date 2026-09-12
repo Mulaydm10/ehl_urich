@@ -91,9 +91,13 @@ if __name__ == "__main__":
     print(f"    {len(basemap):,} ways, "
           f"{sum(len(w['path']) for w in basemap):,} vertices")
 
-    print("[4] pre-solving the presets")
+    print("[4] joy meter (analysis/15_joy_meter.py output)")
+    joy = S._load_joy()
+    print(f"    {'none — run analysis/15_joy_meter.py' if joy is None else str(len(joy['rides'])) + ' rides'}")
+
+    print("[5] pre-solving the presets")
     payload = {"cells": cells, "edges": edges, "osm": osm, "riders": riders,
-               "basemap": basemap, "precomputed": {}}
+               "basemap": basemap, "precomputed": {}, "joy": joy}
     S._S = {**payload, "graphs": {}, "source": "bake(build)",
             "loaded_s": 0.0}
 

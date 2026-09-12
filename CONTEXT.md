@@ -22,7 +22,7 @@ The build now follows **`FLOWSTATE_Execution_Plan.docx`** (Parts A–E). Phase s
 | 5 rebuild pitch | `docs/06_PITCH.md` + `docs/10_LIVE_DEMO.md` | **DONE** — both rewritten from doc 18, beats verified against the running service |
 | 6 bake + rehearse | `data/cache/demo.pkl` | bake **DONE**; rehearsal not started |
 | + external sources | OSM, not in the original plan | **DONE** |
-| **FEATURES.md build** | phases 0-5 in **doc 19** | **Phase 0 DONE; Phase 1 (Joy Meter — the frog) NEXT** |
+| **FEATURES.md build** | phases 0-5 in **doc 19** | **Phases 0-1 DONE** — Joy Meter **WEAK**, grip-budget claim **REJECTED** (doc 20); **Phase 2 road character NEXT** |
 
 Beyond the plan, also done: `app/service.py` (the API the UI calls),
 `analysis/13_osm_layer.py`, `analysis/14_bake_demo.py`, `run_demo.sh`.
@@ -30,7 +30,7 @@ Beyond the plan, also done: `app/service.py` (the API the UI calls),
 **Phase 1→2→3 is a strict serial chain and is the whole submission.** Phases 0, 3, 5, 6 are
 never to be cut; cut order if short is surprise index, then Phase 4, then peak-end.
 
-**The authoritative record is docs 13-19** (19 = the FEATURES.md phase plan — read it before building anything) — 13 (phases 0-1), 14 (the router), 15 (OSM),
+**The authoritative record is docs 13-20** (19 = the FEATURES.md phase plan — read it before building anything; 20 = Phase 1 Joy Meter results) — 13 (phases 0-1), 14 (the router), 15 (OSM),
 16 (the loop, the API, the bake), 17 (the ROUTE tab), 18 (the pitch audit), 19 (the feature phases). They record what was measured, which plan claims survived
 checking and which did not. Read them before quoting any number.
 

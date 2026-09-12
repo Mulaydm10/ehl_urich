@@ -45,6 +45,11 @@ riders it is a pair of anecdotes, not a validation.
 
 ## Phase 1 — THE FROG: measure fun on a ride  (Layer 1)
 
+> **DONE — doc 20.** Joy Meter **WEAK** on both riders (length-matched AUC 0.675 A, 0.637 C);
+> only U (uninterrupted share) replicates; R (reversals) flips sign between riders; grip-budget
+> mechanism **REJECTED** (AUC 0.55 / 0.53); F1.2 blocked by coverage. Joy is exposed as a
+> measurement with its verdict and is **not** an optimisation target for Phases 3-4.
+
 Why first: it is the hardest, the likeliest to fail its own test, the one the file calls "the
 thing that wins it" — and it produces the **outcome metric** that Phases 3 and 4 trade on. A
 mode or a Pareto curve with no measure of fun is a slider.
@@ -88,7 +93,7 @@ All new per-cell columns in `analysis/10_crowd_layer.py` (13.8 s rebuild), read 
 | Feature | Column / use |
 |---|---|
 | `dwell_share` | missing today — `router.py` says so in a comment. Prerequisite for F2.8 |
-| F2.6 reversals / km | cell-level version of Phase 1's R |
+| F2.6 reversals / km | cell-level version of Phase 1's R — **flipped sign between riders in doc 20; mask OSM residential cells before trusting it** |
 | F2.5 FFT rhythm | lean resampled every 10 m by distance, dominant wavelength + bandwidth. Heaviest item in the phase |
 | F2.7 adventure index | `demand_p90 / log1p(n_rides)` |
 | F2.8 crowd-mined viewpoints | high dwell AND high elevation AND far from ride start/end. **Mask zero elevation (46-51%).** Validate against OSM `tourism=viewpoint` via a cached Overpass fetch following `13_osm_layer.py` — BMW data is not transmitted |
@@ -116,7 +121,7 @@ and report it. osmnx topology is the only fix and it is **not in this plan**.
 Alongside `route_a_to_b` / `route_loop`:
 - **F4.3 arc loop** — re-rank the existing loop candidates by distance to a target flow arc
   (warm-up → peak at 65-70% → easy return), and add Phase 2 gems as turnarounds. Cheapest item here.
-- **F4.2 Pareto** — sweep z* × mode (**not λ: it saturates**, doc 14); non-dominated (minutes, Joy).
+- **F4.2 Pareto** — sweep z* × mode (**not λ: it saturates**, doc 14); non-dominated (minutes, mean demand / flow), joy shown beside but not optimised — it is WEAK (doc 20).
 - F4.6 commute upgrade — first check how many of user A's commutes are inside the box.
 - F4.5 urban wander — lowest; crowd timestamps are shifted, so time-of-day flow is not computable.
 - F4.8 solar/thermal — T4, say it, don't build it.

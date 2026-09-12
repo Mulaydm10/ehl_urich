@@ -1,0 +1,309 @@
+{
+ "userA": {
+  "verdict": "WEAK",
+  "length_flag": false,
+  "window_km": 8.899161958655146,
+  "rho_joy_km_all": 0.4351422719468912,
+  "rho_joy_km_mid_band": 0.3490598290598291,
+  "n_usable": 94,
+  "n_commute": 47,
+  "n_long": 21,
+  "n_gps_rescued": 24,
+  "table": [
+   {
+    "test": "whole-ride",
+    "component": "E_envelope",
+    "auc": 0.435,
+    "ci_lo": 0.278,
+    "ci_hi": 0.615,
+    "n_long": 21,
+    "n_commute": 47
+   },
+   {
+    "test": "whole-ride",
+    "component": "R_reversals_km",
+    "auc": 0.62,
+    "ci_lo": 0.446,
+    "ci_hi": 0.78,
+    "n_long": 21,
+    "n_commute": 47
+   },
+   {
+    "test": "whole-ride",
+    "component": "T_throttle_entropy",
+    "auc": 0.836,
+    "ci_lo": 0.718,
+    "ci_hi": 0.931,
+    "n_long": 21,
+    "n_commute": 47
+   },
+   {
+    "test": "whole-ride",
+    "component": "U_uninterrupted",
+    "auc": 0.881,
+    "ci_lo": 0.797,
+    "ci_hi": 0.952,
+    "n_long": 21,
+    "n_commute": 47
+   },
+   {
+    "test": "whole-ride",
+    "component": "joy",
+    "auc": 0.722,
+    "ci_lo": 0.581,
+    "ci_hi": 0.858,
+    "n_long": 21,
+    "n_commute": 47
+   },
+   {
+    "test": "length-matched",
+    "component": "E_envelope",
+    "auc": 0.475,
+    "ci_lo": 0.301,
+    "ci_hi": 0.652,
+    "n_long": 21,
+    "n_commute": 47
+   },
+   {
+    "test": "length-matched",
+    "component": "R_reversals_km",
+    "auc": 0.681,
+    "ci_lo": 0.505,
+    "ci_hi": 0.846,
+    "n_long": 21,
+    "n_commute": 47
+   },
+   {
+    "test": "length-matched",
+    "component": "T_throttle_entropy",
+    "auc": 0.659,
+    "ci_lo": 0.496,
+    "ci_hi": 0.809,
+    "n_long": 21,
+    "n_commute": 47
+   },
+   {
+    "test": "length-matched",
+    "component": "U_uninterrupted",
+    "auc": 0.916,
+    "ci_lo": 0.838,
+    "ci_hi": 0.976,
+    "n_long": 21,
+    "n_commute": 47
+   },
+   {
+    "test": "length-matched",
+    "component": "joy",
+    "auc": 0.675,
+    "ci_lo": 0.508,
+    "ci_hi": 0.828,
+    "n_long": 21,
+    "n_commute": 47
+   }
+  ],
+  "reference": {
+   "E_envelope": [
+    0.1739617067306187,
+    0.13434746486481555
+   ],
+   "R_reversals_km": [
+    2.5281249674861006,
+    1.1738634427916714
+   ],
+   "T_throttle_entropy": [
+    0.5368156084662363,
+    0.1548868129887885
+   ],
+   "U_uninterrupted": [
+    0.9465641647509336,
+    0.16594215825694855
+   ]
+  },
+  "grip_budget": {
+   "verdict": "FAIL",
+   "auc": 0.5501402541472741,
+   "ci_lo": 0.450301810975911,
+   "ci_hi": 0.6702523342937285,
+   "n_hard_brake": 7869,
+   "n_abs": 53,
+   "n_abs_rides": 25,
+   "median_grip_abs": 0.06775958816970683,
+   "median_grip_no_abs": 0.050953649130518495,
+   "rate_by_lean": {
+    "<10": [
+     5945,
+     0.006223717409587889
+    ],
+    "10-20": [
+     1177,
+     0.009345794392523364
+    ],
+    ">20": [
+     747,
+     0.006693440428380187
+    ]
+   }
+  }
+ },
+ "userC": {
+  "verdict": "WEAK",
+  "length_flag": false,
+  "window_km": 9.152457444993207,
+  "rho_joy_km_all": 0.3441338322694255,
+  "rho_joy_km_mid_band": 0.12845138055222088,
+  "n_usable": 176,
+  "n_commute": 108,
+  "n_long": 18,
+  "n_gps_rescued": 0,
+  "table": [
+   {
+    "test": "whole-ride",
+    "component": "E_envelope",
+    "auc": 0.64,
+    "ci_lo": 0.49,
+    "ci_hi": 0.779,
+    "n_long": 18,
+    "n_commute": 108
+   },
+   {
+    "test": "whole-ride",
+    "component": "R_reversals_km",
+    "auc": 0.338,
+    "ci_lo": 0.234,
+    "ci_hi": 0.447,
+    "n_long": 18,
+    "n_commute": 108
+   },
+   {
+    "test": "whole-ride",
+    "component": "T_throttle_entropy",
+    "auc": 0.944,
+    "ci_lo": 0.904,
+    "ci_hi": 0.977,
+    "n_long": 18,
+    "n_commute": 108
+   },
+   {
+    "test": "whole-ride",
+    "component": "U_uninterrupted",
+    "auc": 0.996,
+    "ci_lo": 0.986,
+    "ci_hi": 1.0,
+    "n_long": 18,
+    "n_commute": 108
+   },
+   {
+    "test": "whole-ride",
+    "component": "joy",
+    "auc": 0.822,
+    "ci_lo": 0.723,
+    "ci_hi": 0.916,
+    "n_long": 18,
+    "n_commute": 108
+   },
+   {
+    "test": "length-matched",
+    "component": "E_envelope",
+    "auc": 0.391,
+    "ci_lo": 0.255,
+    "ci_hi": 0.532,
+    "n_long": 18,
+    "n_commute": 108
+   },
+   {
+    "test": "length-matched",
+    "component": "R_reversals_km",
+    "auc": 0.279,
+    "ci_lo": 0.165,
+    "ci_hi": 0.412,
+    "n_long": 18,
+    "n_commute": 108
+   },
+   {
+    "test": "length-matched",
+    "component": "T_throttle_entropy",
+    "auc": 0.843,
+    "ci_lo": 0.722,
+    "ci_hi": 0.94,
+    "n_long": 18,
+    "n_commute": 108
+   },
+   {
+    "test": "length-matched",
+    "component": "U_uninterrupted",
+    "auc": 0.951,
+    "ci_lo": 0.893,
+    "ci_hi": 0.989,
+    "n_long": 18,
+    "n_commute": 108
+   },
+   {
+    "test": "length-matched",
+    "component": "joy",
+    "auc": 0.637,
+    "ci_lo": 0.509,
+    "ci_hi": 0.764,
+    "n_long": 18,
+    "n_commute": 108
+   }
+  ],
+  "reference": {
+   "E_envelope": [
+    0.4686206883097366,
+    0.2992012828366232
+   ],
+   "R_reversals_km": [
+    4.798615725682617,
+    2.3081103114653665
+   ],
+   "T_throttle_entropy": [
+    0.5543075071910882,
+    0.15803607156814817
+   ],
+   "U_uninterrupted": [
+    0.9648649680123428,
+    0.05113297973339268
+   ]
+  },
+  "grip_budget": {
+   "verdict": "FAIL",
+   "auc": 0.5279642882378506,
+   "ci_lo": 0.4440448871444428,
+   "ci_hi": 0.6123118372239384,
+   "n_hard_brake": 41857,
+   "n_abs": 601,
+   "n_abs_rides": 69,
+   "median_grip_abs": 0.05655128002493813,
+   "median_grip_no_abs": 0.051652890894454614,
+   "rate_by_lean": {
+    "<10": [
+     32663,
+     0.013654593882986866
+    ],
+    "10-20": [
+     5868,
+     0.012440354464894342
+    ],
+    ">20": [
+     3326,
+     0.02465423932651834
+    ]
+   }
+  }
+ },
+ "preregistered": {
+  "commute_km": [
+   5.0,
+   20.0
+  ],
+  "long_km": 100.0,
+  "min_group": 8,
+  "pass_auc": 0.7,
+  "pass_ci_lo": 0.5,
+  "weak_auc": 0.6,
+  "length_rho": 0.5,
+  "hard_brake_g": -0.2,
+  "n_boot": 2000,
+  "seed": 7
+ }
+}
