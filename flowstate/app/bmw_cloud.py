@@ -207,6 +207,9 @@ class BmwCloud:
     def get_rides(self) -> list[dict]:
         return self.rides
 
+    def live_rides(self) -> list[dict]:
+        return [r for r in self._recordings.values() if r["recording"]]
+
     def start_recording(self, bike_id: str, title: str) -> dict:
         rid = f"live-{uuid.uuid4().hex[:8]}"
         rec = {"id": rid, "bikeId": bike_id, "title": title or "Live ride",

@@ -12,6 +12,14 @@ PORT="${FS_PORT:-8090}"
 # the mock engine. FLOWSTATE_MOCK=1 still forces the mock explicitly.
 export FLOWSTATE_REQUIRE_REAL="${FLOWSTATE_REQUIRE_REAL:-1}"
 
+# NOTE FOR CLAUDE (Mac): the voice assistant's brain is server-side. Export
+# OPENAI_API_KEY (or OPENAI_API_KEY_FILE pointing at a file holding it) before
+# running this, and /api/assistant goes live: OpenAI calls the app's own tools
+# against this same engine and the phone gets back speech plus UI actions. The
+# key must stay here — it is never sent to the phone and never in the APK.
+# Without it /api/assistant/status reports disabled and the app answers
+# on-device instead of inventing numbers.
+
 case "${1:-}" in
   --lan)   ADDR=$(ipconfig getifaddr en0 || echo 127.0.0.1) ;;
   --local) ADDR=127.0.0.1 ;;

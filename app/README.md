@@ -72,15 +72,35 @@ showing a fabricated position.
 
 ## Voice assistant
 
-`src/components/VoiceAssistant.tsx` is a mic button above the tab bar. It uses
-the browser's built-in Web Speech API — no key, no network — and answers from
-data the app already holds via `src/services/voiceIntents.ts`, speaking the
-reply and navigating the app when the command implies a screen.
+`src/components/VoiceAssistant.tsx` is a mic button above the tab bar. Speech
+in and out uses the browser's Web Speech API; there is also a text box, because
+Android WebView has no recogniser and refuses the mic.
 
-This is the on-device layer only. The cloud assistant (OpenAI + backend tool
-calls, so the model can drive planning and the BMW services itself) replaces
-`resolveVoice` and is not wired yet; any key for it must live server-side on
-the Mac and never in the APK.
+Where the answer comes from depends on the server:
+
+* **Cloud assistant** — when the backend has an OpenAI key, the prompt goes to
+  `POST /api/assistant`. The model calls this app's own functions
+  (`plan_route`, `plan_loop`, `compare_routes`, `suggest_stops`, `garage`,
+  `bike_status`, `season_stats`, `list_rides`, `ride_debrief`, `start_ride`,
+  `stop_ride`, `group_ride`, `offline_maps`, `handoff_route`, `open_screen`,
+  `select_bike`), the server runs them against the same FLOWSTATE engine and
+  BMW services the REST API uses, and the reply carries both the spoken
+  sentence and UI actions — so "plan me a two hour flow loop from Tegernsee
+  and show it" actually plans it and opens the screen.
+* **On-device** — with no key, or with the backend unreachable, the panel falls
+  back to `src/services/voiceIntents.ts`, which only reads data already loaded.
+  It never fabricates an answer, and the footer says which layer replied.
+
+To enable the cloud assistant on the Mac, before `./run_api.sh`:
+
+```bash
+export OPENAI_API_KEY=sk-...          # or: export OPENAI_API_KEY_FILE=~/.openai-key
+export OPENAI_MODEL=gpt-4o-mini       # optional, this is the default
+```
+
+The key stays on the Mac. It is never sent to the phone and never compiled into
+the APK — the app only ever sees the spoken text and the UI actions.
+`GET /api/assistant/status` reports whether it is configured.
 
 ## Build the Android debug APK
 

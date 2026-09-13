@@ -35,6 +35,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import assistant as assistant_mod  # noqa: E402
 import bmw_cloud  # noqa: E402
 
 # ---- pick the real engine if its data is here, else the mock ---------------
@@ -58,6 +59,7 @@ else:
         ENGINE_KIND = f"mock (service unavailable: {type(exc).__name__})"
 
 CLOUD = bmw_cloud.BmwCloud()
+ASSISTANT = assistant_mod.Assistant(ENGINE, CLOUD, ENGINE_KIND)
 
 app = FastAPI(title="FLOWSTATE + BMW backend", version="1.0")
 app.add_middleware(
@@ -142,6 +144,11 @@ class HandoffReq(BaseModel):
     bikeId: str
 
 
+class AssistantReq(BaseModel):
+    text: str
+    context: dict | None = None
+
+
 class StartRideReq(BaseModel):
     bikeId: str
     title: str = ""
@@ -164,6 +171,21 @@ def health() -> JSONResponse:
 @app.get("/api/status")
 def status() -> JSONResponse:
     return ok({**ENGINE.status(), "engine": ENGINE_KIND})
+
+
+# --------------------------------------------------------------------------
+# assistant (OpenAI tool calling over this app's own services)
+# --------------------------------------------------------------------------
+
+@app.get("/api/assistant/status")
+def assistant_status() -> JSONResponse:
+    return ok(ASSISTANT.status())
+
+
+@app.post("/api/assistant")
+def assistant_ask(req: AssistantReq) -> JSONResponse:
+    res = ASSISTANT.ask(req.text, req.context)
+    return JSONResponse(_clean(res), status_code=200 if res.get("ok") else 503)
 
 
 # --------------------------------------------------------------------------

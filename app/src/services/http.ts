@@ -46,9 +46,9 @@ export function setBackendUrl(url: string): void {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, timeoutMs = 6000): Promise<T> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 6000)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const res = await fetch(`${base()}${path}`, {
       ...init,
@@ -63,9 +63,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const http = {
-  get: <T,>(path: string) => request<T>(path),
-  post: <T,>(path: string, body: unknown) =>
-    request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  get: <T,>(path: string, timeoutMs?: number) => request<T>(path, undefined, timeoutMs),
+  post: <T,>(path: string, body: unknown, timeoutMs?: number) =>
+    request<T>(path, { method: 'POST', body: JSON.stringify(body) }, timeoutMs),
 }
 
 /** True once we have seen at least one successful backend call this session. */
