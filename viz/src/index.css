@@ -17,6 +17,7 @@ body { @apply bg-void text-bone font-sans text-[13px]; }
 .leaflet-control-attribution a { color: #6DB6E8 !important; }
 .leaflet-bar a { background: #2b2d30 !important; color: #F1F2F3 !important; border-color: #191a1c !important; }
 .leaflet-tooltip { background: #2b2d30; color: #F1F2F3; border: 1px solid #3a3d41; box-shadow: none; }
+.leaflet-tooltip.refusal-tip { width: 280px; white-space: normal; line-height: 1.35; }
 .leaflet-tooltip-top:before { border-top-color: #3a3d41; }
 
 /* Polyline draw-on: stroke-dasharray/offset set inline per path length */

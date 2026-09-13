@@ -125,8 +125,8 @@ export default function RouteMap(p: RouteMapProps) {
 
       {refusals.map((r, i) => (
         <Marker key={`ref-${i}`} position={[r.lat, r.lon]} icon={refusalIcon}>
-          <Tooltip direction="top" offset={[0, -8]}>
-            <div className="max-w-[260px] whitespace-normal">
+          <Tooltip direction="top" offset={[0, -8]} className="refusal-tip">
+            <div>
               <div className="font-semibold text-mred">Refused ({r.src})</div>
               <div>{r.reason}</div>
               <div className="text-ash mt-1">cell {r.cell} · demand {r.demand.toFixed(1)}°</div>

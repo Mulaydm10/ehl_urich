@@ -268,7 +268,7 @@ export default function App() {
           <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center bg-void/70">
             <div className="rounded-lg border border-mred/60 bg-panel px-6 py-4 text-center">
               <div className="text-[15px] font-semibold text-mred">Backend unreachable</div>
-              <div className="mt-1 text-ash">Nothing is drawn without a live engine response.<br />Start it with <span className="font-mono text-bone">cd flowstate && FLOWSTATE_MOCK=1 ./run_api.sh</span></div>
+              <div className="mt-1 text-ash">Nothing is drawn without a live engine response.<br />Start it with <span className="font-mono text-bone">cd flowstate && FLOWSTATE_MOCK=1 ./run_api.sh</span> (Mac) or <span className="font-mono text-bone">FLOWSTATE_MOCK=1 python3 -m uvicorn api:app --app-dir app --port 8090</span></div>
             </div>
           </div>
         ) : null}
