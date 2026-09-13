@@ -621,6 +621,17 @@ class Assistant:
         self.cloud = cloud
         self.engine_kind = engine_kind
         self.model = DEFAULT_MODEL
+        # Observers of every tool run: (name, args, ride, result, source).
+        # The viz dashboard's live feed hangs off this; nothing else does.
+        self.on_tool: list[Callable[[str, dict[str, Any], dict[str, Any] | None, Any, str], None]] = []
+
+    def _notify(self, name: str, args: dict[str, Any], ride: dict[str, Any] | None,
+                result: Any, source: str) -> None:
+        for fn in self.on_tool:
+            try:
+                fn(name, args, ride, result, source)
+            except Exception:  # noqa: BLE001 - a watcher must never break a turn
+                pass
 
     # -- key ---------------------------------------------------------------
 
@@ -967,7 +978,9 @@ class Assistant:
             result = handler(args)
         except Exception as exc:  # noqa: BLE001 - report, don't crash the turn
             err = {"error": f"{type(exc).__name__}: {exc}"}
+            self._notify(name, args, ride, err, "tool")
             return {"ok": False, "result": err, "for_model": err, "actions": []}
+        self._notify(name, args, ride, result, "tool")
         # result is what the app draws, for_model is what is worth speaking:
         # the realtime model reads its tool output over the data channel, so
         # it must not be handed a route's full geometry.
@@ -1147,6 +1160,7 @@ class Assistant:
                         result = handler(args)
                     except Exception as exc:  # noqa: BLE001 - report, don't crash the turn
                         result = {"error": f"{type(exc).__name__}: {exc}"}
+                self._notify(name, args, ride, result, "ask")
                 used.append(name)
                 actions.extend(_actions_for(name, result))
                 messages.append({

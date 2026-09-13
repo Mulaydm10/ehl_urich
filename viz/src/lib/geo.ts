@@ -40,3 +40,17 @@ export function pointAt(path: LonLat[], cum: number[], t: number): { point: LonL
 export function toLatLng(p: LonLat): [number, number] {
   return [p[1], p[0]]
 }
+
+/** Index of the path vertex closest to `p` (planar approximation, fine at route scale). */
+export function nearestIndex(path: LonLat[], p: LonLat): number {
+  let best = 0
+  let bestD = Infinity
+  const k = Math.cos((p[1] * Math.PI) / 180)
+  for (let i = 0; i < path.length; i++) {
+    const dx = (path[i][0] - p[0]) * k
+    const dy = path[i][1] - p[1]
+    const d = dx * dx + dy * dy
+    if (d < bestD) { bestD = d; best = i }
+  }
+  return best
+}

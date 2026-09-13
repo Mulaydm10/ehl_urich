@@ -39,6 +39,7 @@ import assistant as assistant_mod  # noqa: E402
 import bike_link  # noqa: E402
 import bmw_cloud  # noqa: E402
 import copilot as copilot_mod  # noqa: E402
+import live_feed as live_feed_mod  # noqa: E402
 import via as via_mod  # noqa: E402
 
 # ---- pick the real engine if its data is here, else the mock ---------------
@@ -65,6 +66,8 @@ CLOUD = bmw_cloud.BmwCloud()
 LINK = bike_link.BikeLink(CLOUD)  # FLOWSTATE_BIKE_LINK=stand_in (default) | native
 ASSISTANT = assistant_mod.Assistant(ENGINE, CLOUD, ENGINE_KIND)
 COPILOT = copilot_mod.Copilot(ENGINE, CLOUD, ENGINE_KIND)
+FEED = live_feed_mod.LiveFeed()
+ASSISTANT.on_tool.append(FEED.tool)
 
 app = FastAPI(title="FLOWSTATE + BMW backend", version="1.0")
 app.add_middleware(
@@ -277,6 +280,7 @@ def assistant_status() -> JSONResponse:
 @app.post("/api/assistant")
 def assistant_ask(req: AssistantReq) -> JSONResponse:
     res = ASSISTANT.ask(req.text, req.context)
+    FEED.said(req.text, str(res.get("say") or ""), list(res.get("tools_used") or []), bool(res.get("ok")))
     return JSONResponse(_clean(res), status_code=200 if res.get("ok") else 503)
 
 
@@ -297,7 +301,9 @@ def copilot_status() -> JSONResponse:
 def copilot_tick(req: CopilotTickReq) -> JSONResponse:
     """Live ride watcher: deterministic triggers decide whether there is
     anything to say, OpenAI only phrases it. At most one suggestion."""
-    return ok(COPILOT.tick(req.model_dump()))
+    body = req.model_dump()
+    FEED.position(body)
+    return ok(COPILOT.tick(body))
 
 
 @app.post("/api/copilot/dismiss")
@@ -327,6 +333,14 @@ def viz_reroute_candidates(req: VizRerouteReq) -> JSONResponse:
     if isinstance(result, dict) and "error" in result:
         return JSONResponse(_clean({"ok": False, **result}), status_code=400)
     return ok(result)
+
+
+@app.get("/api/viz/feed")
+def viz_feed(since: int = 0) -> JSONResponse:
+    """Read-only: the phone's last position report and the assistant tool
+    calls it triggered (voice or typed), with the engine's real results, so
+    the dashboard can follow a ride that is being driven from the phone."""
+    return ok(FEED.snapshot(since))
 
 
 @app.post("/api/assistant/tool")

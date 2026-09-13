@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import RouteMap, { CAND_COLORS } from './components/RouteMap'
-import { Activity, FlaskConical, Gauge, GitFork, Layers, Loader2, MapPin, Pause, Play, Route, ShieldAlert, ShieldCheck, SlidersHorizontal, User, WifiOff } from 'lucide-react'
+import { Activity, FlaskConical, Gauge, GitFork, Layers, Loader2, MapPin, Mic, Pause, Play, Route, ShieldAlert, ShieldCheck, SlidersHorizontal, Smartphone, User, WifiOff } from 'lucide-react'
 import { Bar, Chip, Notice, Section, Stat, Verdict, fmt, pct } from './components/ui'
 import {
-  ApiError, COVERAGE, api, inCoverage, summaryOf,
-  type Candidate, type Health, type Mode, type Plan, type Presets, type RerouteResult, type Rider, type Status,
+  ApiError, COVERAGE, api, inCoverage, planFromResult, summaryOf,
+  type Candidate, type Feed, type FeedEvent, type Health, type Mode, type Plan, type Presets, type RerouteResult, type Rider, type Status,
 } from './lib/api'
-import { cumulativeKm, pointAt } from './lib/geo'
+import { cumulativeKm, nearestIndex, pointAt } from './lib/geo'
 
 type Change = 'avoid_this_road' | 'more_fun' | 'calmer' | 'scenic' | 'mountain'
 const CHANGES: { key: Change; label: string; order: string }[] = [
@@ -18,6 +18,9 @@ const CHANGES: { key: Change; label: string; order: string }[] = [
 ]
 const SPEEDS = [30, 120, 600]
 const CUSTOM_EXAMPLE = 'custom:reversals_km=+2,elev_mean=+1,n_rides=-1'
+const FEED_POLL_MS = 1000
+const STEP_MS = 1300
+const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms))
 
 function errText(e: unknown): string {
   if (e instanceof ApiError) return e.message
@@ -48,6 +51,7 @@ export default function App() {
     }
   }
   useEffect(() => { void boot() }, [])
+  const backendUp = !!health
   useEffect(() => {
     const id = window.setInterval(() => { api.health().then(setHealth).catch(() => setHealth(null)) }, 5000)
     return () => window.clearInterval(id)
@@ -91,17 +95,27 @@ export default function App() {
     finally { setPlanning(false) }
   }
 
+  // ---- phone feed state (logic below, after the reroute state it drives)
+  const [feed, setFeed] = useState<Feed | null>(null)
+  const [events, setEvents] = useState<FeedEvent[]>([])
+  const [followPhone, setFollowPhone] = useState(true)
+  const [stage, setStage] = useState<string | null>(null)
+  const seq = useRef(0)
+  const queue = useRef<Promise<void>>(Promise.resolve())
+  const phoneRide = feed?.ride ?? null
+  const following = followPhone && !!feed?.phone_live && !!phoneRide
+
   // ---- simulated ride --------------------------------------------------
   const [t, setT] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(120)
   const summary = summaryOf(active)
   const cum = useMemo(() => (active?.path ? cumulativeKm(active.path) : [0]), [active])
-  const riderPos = useMemo(() => (active?.path?.length ? pointAt(active.path, cum, t) : null), [active, cum, t])
+  const simPos = useMemo(() => (active?.path?.length ? pointAt(active.path, cum, t) : null), [active, cum, t])
   const raf = useRef<number | null>(null)
   const last = useRef<number>(0)
   useEffect(() => {
-    if (!playing || !active || !summary.minutes) return
+    if (!playing || !active || !summary.minutes || following) return
     const totalMs = (summary.minutes * 60 * 1000) / speed
     const step = (now: number) => {
       const dt = last.current ? now - last.current : 0
@@ -116,7 +130,7 @@ export default function App() {
     last.current = 0
     raf.current = requestAnimationFrame(step)
     return () => { if (raf.current) cancelAnimationFrame(raf.current) }
-  }, [playing, speed, active, summary.minutes])
+  }, [playing, speed, active, summary.minutes, following])
 
   // ---- reroute fan-out -------------------------------------------------
   const [change, setChange] = useState<Change>('avoid_this_road')
@@ -143,6 +157,81 @@ export default function App() {
     } finally { setRerouting(false) }
   }
 
+  // ---- phone feed: the ride the phone is on and the tools its assistant ran
+  // (voice or typed). Polled from /api/viz/feed; every position and plan
+  // shown in this mode is what the phone posted / the engine returned.
+  const onToolEvent = async (ev: Extract<FeedEvent, { kind: 'tool' }>) => {
+    const result = ev.result as { error?: string } | null
+    const plan = planFromResult(ev.result)
+    if (ev.tool === 'plan_route' || ev.tool === 'plan_loop') {
+      if (!plan) return
+      setReroute(null); setSelected(null); setRerouteErr(null)
+      setActive(plan); setT(0); setPlaying(false)
+      setActiveLabel(`${String(ev.args.mode ?? 'flow')} @ ${Number(ev.args.thrill ?? 0.5).toFixed(2)} — planned by the phone's assistant`)
+      return
+    }
+    if (ev.tool !== 'reroute_from_here') return
+    if (!plan?.reroute || !ev.ride) { setRerouteErr(result?.error ?? 'reroute returned no plan'); return }
+    const m = plan.reroute
+    setStage(`assistant asked for “${m.change}” — re-running the same search, keeping every candidate`)
+    setRerouting(true); setRerouteErr(null); setPlaying(false)
+    try {
+      const res = await api.rerouteCandidates({
+        lat: ev.ride.lat, lon: ev.ride.lon, rider_key: ev.ride.rider_key ?? 'userA',
+        thrill: ev.ride.thrill ?? 0.5, mode: ev.ride.mode ?? 'flow', change: m.change,
+        destination: m.destination, current_cells: ev.ride.route?.cells ?? [],
+      })
+      setReroute(res); setRerouting(false)
+      for (const c of res.candidates) {
+        setSelected(c.index)
+        setStage(`pass ${c.index + 1}/${res.candidates.length}: ${c.mode} @ ${c.thrill.toFixed(2)} — ${c.verdict.replace('_', ' ')}`)
+        await sleep(STEP_MS)
+      }
+      const win = res.candidates.find((c) => c.verdict === 'accepted') ?? null
+      setSelected(win ? win.index : null)
+      setStage(win ? `the phone follows pass ${win.index + 1}: ${m.mode_to} @ ${m.thrill_to.toFixed(2)}` : 'no candidate was usable')
+      await sleep(STEP_MS)
+      setActive(plan); setT(0)
+      setActiveLabel(`${m.mode_to} @ ${m.thrill_to.toFixed(2)} — re-planned by voice${m.reason ? ` (“${m.reason}”)` : ''}`)
+    } catch (e) {
+      setReroute(null); setRerouteErr(errText(e))
+    } finally { setRerouting(false); setStage(null) }
+  }
+
+  useEffect(() => {
+    if (!backendUp) return
+    let stop = false
+    const poll = async () => {
+      try {
+        const f = await api.feed(seq.current)
+        if (stop) return
+        setFeed(f)
+        if (f.events.length) {
+          seq.current = f.seq
+          setEvents((prev) => [...prev, ...f.events].slice(-40))
+          for (const ev of f.events) if (ev.kind === 'tool') queue.current = queue.current.then(() => onToolEvent(ev))
+        }
+      } catch { if (!stop) setFeed(null) }
+    }
+    void poll()
+    const id = window.setInterval(() => void poll(), FEED_POLL_MS)
+    return () => { stop = true; window.clearInterval(id) }
+  }, [backendUp]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The phone's own route, when we have no plan from a tool call yet.
+  useEffect(() => {
+    if (!following || active || !phoneRide?.route?.path?.length) return
+    const r = phoneRide.route
+    setActive({ ok: true, path: r.path, segments: r.segments ?? [], refusals: r.refusals ?? [], summary: [], cells: [] })
+    setActiveLabel(`${phoneRide.mode} @ ${phoneRide.thrill.toFixed(2)} — route the phone reports it is following`)
+  }, [following, active, phoneRide])
+
+  const riderPos = useMemo(() => {
+    if (!following || !phoneRide) return simPos
+    const point: [number, number] = [phoneRide.lon, phoneRide.lat]
+    return { point, index: active?.path?.length ? nearestIndex(active.path, point) : 0 }
+  }, [following, phoneRide, simPos, active])
+
   const selectedCand = reroute?.candidates.find((c) => c.index === selected) ?? null
   const follow = () => {
     if (!selectedCand?.ok || !riderPos) return
@@ -156,7 +245,6 @@ export default function App() {
 
   const shownPlan: Plan | null = selectedCand ? candidateAsPlan(selectedCand) : active
   const shownSummary = summaryOf(shownPlan)
-  const backendUp = !!health
   const engineIsMock = !!status?.mock || (health?.engine ?? '').includes('mock')
 
   const progressPct = Math.round(t * 100)
@@ -185,6 +273,14 @@ export default function App() {
               <FlaskConical size={12} /> mock engine · synthetic geometry
             </span>
           ) : null}
+          {backendUp ? (
+            <span className={`hairline inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${feed?.phone_live ? 'bg-mlight/10 text-mlight' : 'text-dim'}`}
+              title="From /api/copilot/tick: the phone posts its position every few seconds while navigating">
+              <Smartphone size={12} />
+              {feed?.phone_live ? <>phone riding · <span className="tabular font-mono">{phoneRide?.speed_kmh != null ? `${fmt(phoneRide.speed_kmh, 0)} km/h` : '—'}</span></>
+                : feed?.ride_age_s != null ? `phone last seen ${fmt(feed.ride_age_s, 0)} s ago` : 'no phone connected'}
+            </span>
+          ) : null}
           {status?.cells ? <span className="tabular font-mono text-[11px] text-dim">{status.cells.toLocaleString()} cells · {status.edges?.toLocaleString()} edges</span> : null}
         </div>
       </header>
@@ -194,6 +290,40 @@ export default function App() {
         {bootErr ? (
           <div className="p-4"><Notice kind="error">{bootErr}<br /><button className="mt-1 underline" onClick={() => void boot()}>retry</button></Notice></div>
         ) : null}
+
+        <Section title="Phone" icon={Mic} tone="blue" right={
+          <button type="button" onClick={() => setFollowPhone((v) => !v)} className={`rounded-full px-2 py-0.5 text-[10.5px] transition-colors ${followPhone ? 'bg-mlight/15 text-mlight' : 'bg-raised/60 text-dim'}`}>
+            {followPhone ? 'following phone' : 'follow phone: off'}
+          </button>}>
+          <p className="text-[11px] leading-snug text-dim">
+            {following
+              ? <>Position and route come from the phone's live reports; the timeline below is off. When the rider talks to the assistant, its tool calls appear here and the map replays the engine's search on its own.</>
+              : feed?.ride ? <>The phone's last report is {fmt(feed.ride_age_s, 0)} s old, so the simulated rider is shown instead. Assistant tool calls still arrive here.</>
+              : <>Waiting for the phone: nothing arrives until it navigates (position reports) or the rider uses the assistant. Meanwhile the controls below drive a simulated ride.</>}
+          </p>
+          {events.length ? (
+            <ul className="mt-2 max-h-[200px] space-y-1.5 overflow-y-auto pr-1">
+              {[...events].reverse().slice(0, 12).map((ev) => (
+                <li key={ev.seq} className="hairline animate-rise rounded-lg border bg-void/50 px-2.5 py-1.5 text-[11.5px]">
+                  {ev.kind === 'say' ? (
+                    <>
+                      <div className="flex items-center gap-1.5 text-mlight"><Mic size={11} /> <span className="truncate">“{ev.text}”</span></div>
+                      {ev.say ? <div className="mt-0.5 text-ash">→ {ev.say}</div> : null}
+                      {ev.tools_used.length ? <div className="mt-0.5 font-mono text-[10.5px] text-dim">{ev.tools_used.join(', ')}</div> : null}
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-1.5"><GitFork size={11} className="text-amber" /> <span className="font-mono">{ev.tool}</span>
+                        <span className="ml-auto text-[10px] text-dim">{ev.source === 'tool' ? 'live voice' : 'typed / chat'}</span></div>
+                      {Object.keys(ev.args).length ? <div className="mt-0.5 break-all font-mono text-[10.5px] text-dim">{JSON.stringify(ev.args)}</div> : null}
+                      {(() => { const r = ev.result as { error?: string } | null; return r?.error ? <div className="mt-0.5 text-mred">{r.error}</div> : null })()}
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </Section>
 
         <Section title="Rider" icon={User}>
           <div className="flex flex-wrap gap-1.5">
@@ -283,7 +413,12 @@ export default function App() {
           rider={riderPos?.point ?? null} start={start} dest={dest} coverage={COVERAGE}
           onPick={pick ? (lat, lon) => { const p: [number, number] = [Number(lat.toFixed(4)), Number(lon.toFixed(4))]; if (pick === 'start') setStart(p); else setDest(p); setPick(null) } : undefined} />
 
-        {pick ? (
+        {stage ? (
+          <div className="glass pointer-events-none absolute left-1/2 top-3 z-[500] flex -translate-x-1/2 animate-rise items-center gap-2 rounded-full px-4 py-1.5 text-[12px]">
+            <Mic size={12} className="text-mlight" /> <span className="text-bone">{stage}</span>
+          </div>
+        ) : null}
+        {pick && !stage ? (
           <div className="glass pointer-events-none absolute left-1/2 top-3 z-[500] -translate-x-1/2 animate-rise rounded-full px-4 py-1.5 text-[12px]">
             Click the map to set <span className="font-semibold text-mlight">{pick === 'start' ? 'A · start' : 'B · destination'}</span>
           </div>
@@ -320,14 +455,14 @@ export default function App() {
 
         <div className="glass absolute bottom-3 left-3 right-3 z-[500] rounded-2xl px-4 py-3">
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => setPlaying((p) => !p)} disabled={!active}
+            <button type="button" onClick={() => setPlaying((p) => !p)} disabled={!active || following}
               className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-b from-[#2a7be0] to-accent text-white shadow-glow transition-transform hover:scale-105 disabled:opacity-40 disabled:hover:scale-100"
               aria-label={playing ? 'pause' : 'play'}>
               {playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
             </button>
             <div className="flex flex-1 flex-col">
               <input type="range" min={0} max={1000} value={Math.round(t * 1000)} onChange={(e) => { setT(Number(e.target.value) / 1000) }}
-                disabled={!active} className="w-full" aria-label="timeline" style={{ ['--fill' as string]: `${progressPct}%` }} />
+                disabled={!active || following} className="w-full" aria-label="timeline" style={{ ['--fill' as string]: `${progressPct}%` }} />
               <div className="tabular -mt-1 flex justify-between font-mono text-[10px] text-dim">
                 <span>0</span><span className="text-mlight">{progressPct}%</span><span>{summary.minutes != null ? `${fmt(summary.minutes, 0)} min` : '—'}</span>
               </div>
@@ -338,18 +473,26 @@ export default function App() {
                   className={`tabular px-2.5 py-1.5 font-mono text-[11px] transition-colors ${speed === s ? 'bg-accent text-white' : 'text-ash hover:bg-raised/60'}`}>{s}×</button>
               ))}
             </div>
-            <div className="grid w-[320px] grid-cols-3 gap-1.5">
-              <Stat label="elapsed" value={summary.minutes != null ? fmt(summary.minutes * t, 0) : '—'} unit="min" />
-              <Stat label="km left" value={summary.km != null ? fmt(summary.km * (1 - t)) : '—'} unit="km" tone="blue" />
-              <Stat label="min left" value={summary.minutes != null ? fmt(summary.minutes * (1 - t), 0) : '—'} unit="min" tone="blue" />
-            </div>
+            {following ? (
+              <div className="grid w-[320px] grid-cols-3 gap-1.5">
+                <Stat label="speed" value={fmt(phoneRide?.speed_kmh, 0)} unit="km/h" />
+                <Stat label="km left" value={fmt(phoneRide?.route?.remaining_km)} unit="km" tone="blue" />
+                <Stat label="fix age" value={fmt(feed?.ride_age_s, 0)} unit="s" tone="blue" />
+              </div>
+            ) : (
+              <div className="grid w-[320px] grid-cols-3 gap-1.5">
+                <Stat label="elapsed" value={summary.minutes != null ? fmt(summary.minutes * t, 0) : '—'} unit="min" />
+                <Stat label="km left" value={summary.km != null ? fmt(summary.km * (1 - t)) : '—'} unit="km" tone="blue" />
+                <Stat label="min left" value={summary.minutes != null ? fmt(summary.minutes * (1 - t), 0) : '—'} unit="min" tone="blue" />
+              </div>
+            )}
             <button type="button" onClick={() => void doReroute()} disabled={!active || rerouting || !riderPos} className="btn-ghost shrink-0">
               <span className="inline-flex items-center gap-1.5">{rerouting ? <Loader2 size={13} className="animate-spin" /> : <GitFork size={13} />}{rerouting ? 'planning…' : 'Re-plan from here'}</span>
             </button>
           </div>
           <div className="mt-1.5 flex justify-between text-[10.5px] text-dim">
             <span>{active ? <>active: <span className="text-ash">{activeLabel}</span> · {fmt(summary.km)} km · {fmt(summary.minutes, 0)} min from the engine</> : 'no active route'}{riderPos ? <> · rider at <span className="tabular font-mono">{riderPos.point[1].toFixed(4)}, {riderPos.point[0].toFixed(4)}</span></> : ''}</span>
-            <span>remaining = engine total × share of the line still ahead (simulated position, not GPS)</span>
+            <span>{following ? 'position and km left are what the phone reported (GPS + its own remaining_km)' : 'remaining = engine total × share of the line still ahead (simulated position, not GPS)'}</span>
           </div>
         </div>
       </main>

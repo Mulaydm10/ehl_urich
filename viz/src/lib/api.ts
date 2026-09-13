@@ -141,6 +141,50 @@ export interface Status {
   [k: string]: unknown
 }
 
+/** One /api/copilot/tick body as the phone posted it (flowstate/app/api.py CopilotTickReq). */
+export interface PhoneRide {
+  session: string
+  lat: number
+  lon: number
+  speed_kmh: number | null
+  heading_deg: number | null
+  rider_key: string
+  thrill: number
+  mode: string
+  bike_id: string | null
+  route: {
+    path: LonLat[]
+    segments: Segment[]
+    refusals: Refusal[]
+    destination: [number, number] | null
+    remaining_km: number | null
+  } | null
+}
+
+/** The ride context the phone attaches to an assistant call (app/src/services/copilot.ts RideContext). */
+export interface RideContext {
+  lat: number
+  lon: number
+  rider_key?: string
+  thrill?: number
+  mode?: string
+  route?: { destination: [number, number] | null; cells: string[]; line?: [number, number][] } | null
+}
+
+export type FeedEvent =
+  | { seq: number; at: number; kind: 'tool'; source: 'ask' | 'tool'; tool: string
+      args: Record<string, unknown>; ride: RideContext | null; result: unknown }
+  | { seq: number; at: number; kind: 'say'; text: string; say: string; tools_used: string[]; ok: boolean }
+
+export interface Feed {
+  ok: boolean
+  seq: number
+  ride: PhoneRide | null
+  ride_age_s: number | null
+  phone_live: boolean
+  events: FeedEvent[]
+}
+
 export class ApiError extends Error {
   status: number
   body: unknown
@@ -187,6 +231,14 @@ export const api = {
     lat: number; lon: number; rider_key: string; thrill: number; mode: string; change: string
     destination: [number, number] | null; current_cells: string[]; hours?: number
   }) => call<RerouteResult>('/api/viz/reroute_candidates', { method: 'POST', body: JSON.stringify(body) }),
+  feed: (since: number) => call<Feed>(`/api/viz/feed?since=${since}`),
+}
+
+/** A tool result that is a plan (plan_route / plan_loop / reroute_from_here), or null. */
+export function planFromResult(r: unknown): (Plan & { reroute?: RerouteMeta & { reason?: string | null } }) | null {
+  if (!r || typeof r !== 'object' || !('path' in r)) return null
+  const p = r as Plan & { reroute?: RerouteMeta & { reason?: string | null } }
+  return p.ok && Array.isArray(p.path) ? p : null
 }
 
 export function summaryOf(p: Plan | null | undefined): Summary {

@@ -4,9 +4,10 @@ import { MapContainer, Marker, Polyline, ScaleControl, TileLayer, Tooltip, ZoomC
 import type { Candidate, LonLat, Plan, Refusal } from '../lib/api'
 import { toLatLng } from '../lib/geo'
 
-// Same dark base as the phone app's BaseMap.
-const DARK = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
-const DARK_ATTR = 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
+// CARTO Dark Matter: dark base with road network and labels, so the engine's
+// lines sit on recognisable roads (the phone app uses Esri's flatter canvas).
+const DARK = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+const DARK_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
 
 export const CAND_COLORS = ['#F5A524', '#3ED598', '#C77DFF', '#6DB6E8', '#FF7A59', '#FFD166']
 
@@ -107,7 +108,7 @@ export default function RouteMap(p: RouteMapProps) {
 
   return (
     <MapContainer center={[47.7, 11.3]} zoom={9} className="h-full w-full" zoomControl={false} attributionControl>
-      <TileLayer url={DARK} attribution={DARK_ATTR} maxZoom={16} />
+      <TileLayer url={DARK} attribution={DARK_ATTR} subdomains="abcd" maxZoom={19} />
       <ZoomControl position="topright" />
       <ScaleControl position="topright" imperial={false} />
       <Polyline positions={coverageRect} pathOptions={{ color: '#6DB6E8', weight: 1, opacity: 0.3, dashArray: '4 8' }} />
