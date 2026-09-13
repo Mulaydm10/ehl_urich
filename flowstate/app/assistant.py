@@ -681,6 +681,16 @@ class Assistant:
             d = route["destination"]
             dest = [float(d[0]), float(d[1])]
 
+        # A complaint is about the road being ridden towards somewhere. With no
+        # plan loaded and no destination given there is nothing to keep, and a
+        # loop from here is a different ride than the one asked for — so it is
+        # only planned when the caller asked for one by naming its length.
+        if dest is None and not a.get("hours"):
+            return {"error": "You are not following a plan, so there is nothing "
+                             "to re-plan. Give me a destination, or ask for a "
+                             "loop of a certain length.",
+                    "needs": "destination or loop hours"}
+
         change = str(a.get("change") or "same")
         variants = _reroute_variants(change, thrill, mode)
 

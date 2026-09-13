@@ -103,6 +103,14 @@ export interface LiveFix {
   at: number
 }
 
+/**
+ * A fix older than this is not where the bike is, it is where it was. Location
+ * switched off mid-ride leaves the last fix behind, and a tool answered from it
+ * is a confident lie: "a stop 20 km ahead" measured from a road the rider may
+ * have left. Past this age the fix is treated as absent.
+ */
+export const FIX_MAX_AGE_MS = 60_000
+
 let fix: LiveFix | null = null
 
 export const setLiveFix = (next: LiveFix | null): void => {
@@ -110,6 +118,10 @@ export const setLiveFix = (next: LiveFix | null): void => {
 }
 
 export const getLiveFix = (): LiveFix | null => fix
+
+/** The fix only if it is recent enough to answer a mid-ride question with. */
+export const getFreshFix = (now: number = Date.now()): LiveFix | null =>
+  fix && now - fix.at <= FIX_MAX_AGE_MS ? fix : null
 
 /** How many cells of the current plan are worth sending as "the road ahead". */
 const CELLS_SENT = 400
@@ -149,6 +161,23 @@ export interface RideContext {
 }
 
 /**
+ * What the rider asked the next plan to be: the dial and the mode chosen on
+ * Thrill, or built from his ride profile.
+ *
+ * Kept here because a re-plan can start anywhere — a complaint chip, a typed
+ * sentence, the voice model — and all of them must ask for the same thing the
+ * screen says they are asking for. Without it a reroute silently fell back to
+ * `flow` while Navigate claimed the rider's own weights.
+ */
+let wanted: { riderKey?: string; thrill?: number; mode?: string } = {}
+
+export const setRideWants = (next: { riderKey?: string; thrill?: number; mode?: string }): void => {
+  wanted = next
+}
+
+export const getRideWants = () => wanted
+
+/**
  * Everything a mid-ride tool needs: where the bike is, and the plan it is on.
  * Null with no fix — the backend then says it cannot re-plan from here, which
  * is the truth, rather than re-planning from somewhere invented.
@@ -156,18 +185,19 @@ export interface RideContext {
 export function rideContext(
   opts: { riderKey?: string; thrill?: number; mode?: string } = {},
 ): RideContext | null {
-  if (!fix) return null
+  const live = getFreshFix()
+  if (!live) return null
   const r = getActiveRoute()
   const summary = r && !Array.isArray(r.summary) ? r.summary : null
   const last = r?.path[r.path.length - 1]
   return {
-    lat: fix.lat,
-    lon: fix.lon,
-    speed_kmh: fix.speedKmh,
-    heading_deg: fix.headingDeg,
-    rider_key: opts.riderKey ?? 'userA',
-    thrill: opts.thrill ?? r?.z_star ?? 0.5,
-    mode: opts.mode ?? 'flow',
+    lat: live.lat,
+    lon: live.lon,
+    speed_kmh: live.speedKmh,
+    heading_deg: live.headingDeg,
+    rider_key: opts.riderKey ?? wanted.riderKey ?? 'userA',
+    thrill: opts.thrill ?? wanted.thrill ?? r?.z_star ?? 0.5,
+    mode: opts.mode ?? wanted.mode ?? 'flow',
     navigating: !!r,
     route: r && last
       ? {

@@ -64,7 +64,11 @@ export async function reroute(
   reason: string | null,
   ctx: RideContext | null = rideContext(),
 ): Promise<RerouteResult | { error: string }> {
-  if (!ctx) return { error: 'No GPS fix yet, so I cannot re-plan from here.' }
+  if (!ctx) return { error: 'No live GPS fix, so I cannot re-plan from here.' }
+  // "This road is boring" is about a road the rider is on. With no plan loaded
+  // the engine has no destination to keep, and a loop from here is a different
+  // ride than the one that was asked for.
+  if (!ctx.route) return { error: 'No plan loaded, so there is nothing to change. Plan a route first.' }
   let run: ToolRun
   try {
     run = await http.post<ToolRun>(

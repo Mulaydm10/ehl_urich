@@ -4,7 +4,7 @@ import { AlertTriangle, Gauge, Navigation, RefreshCw } from 'lucide-react'
 import { FlowMap } from '../components/FlowMap'
 import { Chip, Feedback, GhostButton, PageHeader, PlannerSwitch, PrimaryButton, SectionTitle } from '../components/primitives'
 import { takePendingPlan } from '../services/assistant'
-import { setActiveRoute } from '../services/copilot'
+import { setActiveRoute, setRideWants } from '../services/copilot'
 import { fitFor } from '../domain/bikeFit'
 import { dialFor, explain, modeKeyFor } from '../domain/ridePreference'
 import { getPreference, subscribePreference } from '../services/ridePreference'
@@ -167,6 +167,12 @@ export function ThrillScreen() {
   }, [])
 
   const zStar = presets?.dial[dial] ?? 0.5
+
+  // What is selected here is what a later re-plan — tapped, typed or spoken
+  // from Navigate — should ask the engine for.
+  useEffect(() => {
+    setRideWants({ riderKey, thrill: zStar, mode })
+  }, [riderKey, zStar, mode])
 
   const runPlan = useCallback(async () => {
     setBusy(true)
