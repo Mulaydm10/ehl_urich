@@ -27,7 +27,11 @@ import urllib.error
 import urllib.request
 from typing import Any, Callable
 
-OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+# Override to route through a compatible gateway (Azure OpenAI, a proxy) or a
+# local stub when testing the tool loop without spending a real key.
+OPENAI_URL = os.environ.get(
+    "OPENAI_URL", "https://api.openai.com/v1/chat/completions",
+)
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 MAX_TOOL_ROUNDS = 4
 REQUEST_TIMEOUT = 45
