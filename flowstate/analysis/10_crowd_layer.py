@@ -382,7 +382,7 @@ def character(T, W, keys):
               flips=("flips", "sum"), abs_rides=("abs_any", "sum"),
               long_stop_rides=("long_stop", "sum"), n_trav=("stop", "size"),
               trav_v_median=("v_mean", "median"), elev_sum=("elev_sum", "sum"),
-              elev_n=("elev_n", "sum"))
+              elev_n=("elev_n", "sum"), stop_rate=("stop", "mean"))
     with np.errstate(divide="ignore", invalid="ignore"):
         a["elev_mean"] = np.where(a.elev_n > 0, a.elev_sum / a.elev_n, np.nan)
         a["dwell_share"] = np.where(a.time_s > 0, a.dwell_s / a.time_s, np.nan)
@@ -540,7 +540,7 @@ def main():
     grid.to_parquet(os.path.join(OUT, "crowd_grid%s.parquet" % tag), index=False)
     print("wrote crowd_grid%s.parquet  (%s cells)" % (tag, f"{len(grid):,}"))
 
-    hv = character(T, W, ["cell", "half"])[CH_COLS + ["n_trav", "elev_mean"]].reset_index()
+    hv = character(T, W, ["cell", "half"])[CH_COLS + ["n_trav", "elev_mean", "stop_rate"]].reset_index()
     hv.insert(0, "morton_code", [inv[c] for c in hv["cell"]])
     hv.drop(columns="cell").to_parquet(os.path.join(OUT, "crowd_halves%s.parquet" % tag),
                                        index=False)

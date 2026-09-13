@@ -1035,34 +1035,10 @@ def route_loop(start, hours: float, rider: Rider, z_star: float,
             f"({COVERAGE[0]}-{COVERAGE[1]} N, {COVERAGE[2]}-{COVERAGE[3]} E). "
             "We have no crowd there, so we have no opinion."))
 
-    a = snap(start[0], start[1], cells, nodes=graph.nodes)
-    si = graph.index[a]
-    budget = float(hours) * 3600.0
-
-    fit = graph.matrix
-    sec = csr_matrix((_csr_aligned(graph, "seconds"), fit.indices, fit.indptr),
-                     shape=fit.shape)
-
-    t_out = dijkstra(sec, directed=True, indices=si)
-    t_back = dijkstra(sec.T.tocsr(), directed=True, indices=si)
-    c_out = dijkstra(fit, directed=True, indices=si)
-    c_back = dijkstra(fit.T.tocsr(), directed=True, indices=si)
-
-    total_t = t_out + t_back
-    total_c = c_out + c_back
-    # leave room for the detour the disjoint return will cost us
-    feasible = np.flatnonzero(np.isfinite(total_t) & np.isfinite(total_c) &
-                              (total_t >= 0.50 * budget) &
-                              (total_t <= 1.00 * budget))
-    if not len(feasible):
-        reach = np.nanmax(t_out[np.isfinite(t_out)]) / 3600.0 if np.isfinite(t_out).any() else 0.0
-        return Route(False, note=(
-            f"No turnaround fits a {hours:.1f} h budget from here. The "
-            f"furthest point reachable on roads we have data for is "
-            f"{reach:.1f} h away, so try a shorter loop or a start with more "
-            f"road around it."))
-
-    order = feasible[np.argsort(total_c[feasible] / np.maximum(total_t[feasible], 1.0))]
+    setup = _loop_setup(graph, start, hours, cells)
+    if isinstance(setup, Route):
+        return setup
+    si, fit, sec, order = setup["si"], setup["fit"], setup["sec"], setup["order"]
 
     # Score candidates WITHOUT assembling them. Assembling means a pandas
     # merge per candidate, which is ~5 ms and caps us at a few dozen tries;
@@ -1073,17 +1049,8 @@ def route_loop(start, hours: float, rider: Rider, z_star: float,
 
     def try_all(tol: float):
         hit, hit_score = None, -1.0
-        for mid in order[:n_candidates]:
-            out_idx = _shortest(graph, si, int(mid))
-            if out_idx is None or len(out_idx) < 2:
-                continue
-            used = list(zip(out_idx[:-1], out_idx[1:]))
-            home_idx = _shortest(graph, int(mid), si,
-                                 matrix=_penalise(fit, used, reuse_penalty))
-            if home_idx is None or len(home_idx) < 2:
-                continue
-            idx = out_idx + home_idx[1:]
-            mins = _path_sum(sec, idx) / 60.0
+        for _, idx, mins in _loop_paths(graph, si, order[:n_candidates], fit, sec,
+                                        reuse_penalty):
             if not (1.0 - tol) * target <= mins <= (1.0 + tol) * target:
                 continue
             arr = np.asarray(idx)
@@ -1125,6 +1092,228 @@ def route_loop(start, hours: float, rider: Rider, z_star: float,
                  f"{best.summary['minutes']:.0f} min.")
     best.note = (best.note + " " if best.note else "") + note
     return best
+
+
+def _loop_setup(graph: Graph, start, hours: float, cells: pd.DataFrame):
+    """
+    The feasible turnaround ring, ranked by fit cost per second. Shared by
+    route_loop and route_loop_arc so both see exactly the same candidates.
+    Returns a failed Route if no turnaround fits.
+    """
+    a = snap(start[0], start[1], cells, nodes=graph.nodes)
+    si = graph.index[a]
+    budget = float(hours) * 3600.0
+
+    fit = graph.matrix
+    sec = csr_matrix((_csr_aligned(graph, "seconds"), fit.indices, fit.indptr),
+                     shape=fit.shape)
+
+    t_out = dijkstra(sec, directed=True, indices=si)
+    t_back = dijkstra(sec.T.tocsr(), directed=True, indices=si)
+    c_out = dijkstra(fit, directed=True, indices=si)
+    c_back = dijkstra(fit.T.tocsr(), directed=True, indices=si)
+
+    total_t = t_out + t_back
+    total_c = c_out + c_back
+    # leave room for the detour the disjoint return will cost us
+    feasible = np.flatnonzero(np.isfinite(total_t) & np.isfinite(total_c) &
+                              (total_t >= 0.50 * budget) &
+                              (total_t <= 1.00 * budget))
+    if not len(feasible):
+        reach = np.nanmax(t_out[np.isfinite(t_out)]) / 3600.0 if np.isfinite(t_out).any() else 0.0
+        return Route(False, note=(
+            f"No turnaround fits a {hours:.1f} h budget from here. The "
+            f"furthest point reachable on roads we have data for is "
+            f"{reach:.1f} h away, so try a shorter loop or a start with more "
+            f"road around it."))
+
+    order = feasible[np.argsort(total_c[feasible] / np.maximum(total_t[feasible], 1.0))]
+    return {"si": si, "fit": fit, "sec": sec, "order": order,
+            "total_t": total_t, "budget": budget}
+
+
+def _loop_paths(graph: Graph, si: int, mids, fit: csr_matrix, sec: csr_matrix,
+                reuse_penalty: float):
+    """Out to each turnaround, home on penalised edges. Yields (mid, node path, minutes)."""
+    for mid in mids:
+        out_idx = _shortest(graph, si, int(mid))
+        if out_idx is None or len(out_idx) < 2:
+            continue
+        used = list(zip(out_idx[:-1], out_idx[1:]))
+        home_idx = _shortest(graph, int(mid), si,
+                             matrix=_penalise(fit, used, reuse_penalty))
+        if home_idx is None or len(home_idx) < 2:
+            continue
+        idx = out_idx + home_idx[1:]
+        yield int(mid), idx, _path_sum(sec, idx) / 60.0
+
+
+def _path_sum_checked(m: csr_matrix, idx) -> tuple[float, bool]:
+    """Like _path_sum, but says whether every step exists (a reversed loop may not)."""
+    tot = 0.0
+    for a, b in zip(idx[:-1], idx[1:]):
+        lo, hi = m.indptr[a], m.indptr[a + 1]
+        k = np.flatnonzero(m.indices[lo:hi] == b)
+        if not len(k):
+            return tot, False
+        tot += float(m.data[lo + k[0]])
+    return tot, True
+
+
+# --------------------------------------------------------------------------
+# F4.3 — the loop as a dramatic arc (Phase 4, doc 23)
+# --------------------------------------------------------------------------
+
+ARC_START = 0.35           # warm-up, as a share of this loop's own flow range
+ARC_PEAK_AT = 0.675        # FEATURES.md: the peak at 65-70% of the ride
+ARC_END = 0.45             # an easy return, not a dead one
+ARC_BINS = 40
+ARC_SMOOTH_M = PEAK_WINDOW_M   # "the best five kilometres"
+ARC_MIN_FLOW_RATIO = 0.90  # the arc may cost at most 10% of today's mean fit ...
+ARC_MAX_DISTINCT_DROP = 0.05   # ... and 5 points of road ridden once
+
+
+def arc_target(x) -> np.ndarray:
+    """Easy warm-up -> building -> peak at 67.5% -> easy return. Shape only, in [0, 1]."""
+    x = np.asarray(x, dtype=float)
+    return np.where(x <= ARC_PEAK_AT,
+                    ARC_START + (1.0 - ARC_START) * x / ARC_PEAK_AT,
+                    1.0 - (1.0 - ARC_END) * (x - ARC_PEAK_AT) / (1.0 - ARC_PEAK_AT))
+
+
+def loop_profile(graph: Graph, idx) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Flow along a node path against the share of distance ridden, smoothed over
+    5 km and resampled to ARC_BINS points. Flow is the destination cell's, per
+    step, as route_summary counts it.
+    """
+    sc = graph.scored.reindex(graph.nodes[np.asarray(idx)])
+    lat = sc["lat"].to_numpy(dtype=float)
+    lon = sc["lon"].to_numpy(dtype=float)
+    flow = np.nan_to_num(sc["flow"].to_numpy(dtype=float))
+    step = np.nan_to_num(_haversine_m(lat[:-1], lon[:-1], lat[1:], lon[1:]))
+    cum = np.r_[0.0, np.cumsum(step)]
+    x = (np.arange(ARC_BINS) + 0.5) / ARC_BINS
+    if cum[-1] <= 0:
+        return x, np.zeros(ARC_BINS)
+    cf = np.r_[0.0, np.cumsum(flow[1:] * step)]
+    lo = np.searchsorted(cum, cum - ARC_SMOOTH_M / 2.0, side="left")
+    hi = np.searchsorted(cum, cum + ARC_SMOOTH_M / 2.0, side="right") - 1
+    span = cum[hi] - cum[lo]
+    sm = np.where(span > 0, (cf[hi] - cf[lo]) / np.maximum(span, 1e-9), flow)
+    return x, np.interp(x * cum[-1], cum, sm)
+
+
+def arc_error(x: np.ndarray, prof: np.ndarray) -> float:
+    """RMS distance between the min-max normalised profile and the target arc."""
+    t = arc_target(x)
+    rng_ = float(prof.max() - prof.min())
+    if rng_ < 1e-6:                                   # a flat ride has no shape at all
+        return float(np.sqrt(np.mean((t - t.mean()) ** 2)))
+    p = (prof - prof.min()) / rng_
+    return float(np.sqrt(np.mean((p - t) ** 2)))
+
+
+def route_loop_arc(start, hours: float, rider: Rider, z_star: float,
+                   graph: Graph | None = None,
+                   cells: pd.DataFrame | None = None,
+                   edges: pd.DataFrame | None = None,
+                   lam: float = LAMBDA_DEFAULT,
+                   tau: float = TAU_DEFAULT,
+                   osm: pd.DataFrame | None = None,
+                   tolerance: float = 0.20,
+                   n_candidates: int = 160,
+                   reuse_penalty: float = 6.0,
+                   mode: str = "flow",
+                   gem_cells=()) -> Route:
+    """
+    F4.3: compose the loop instead of maximising it. Formally a heuristic for
+    arc orienteering — the time-budgeted tour whose flow PROFILE is closest to
+    a target shape, not the one with the highest mean.
+
+    Candidates are exactly route_loop's (same ring, same out-and-penalised-home
+    construction), plus crowd gems that fit the ring as turnarounds, each ridden
+    either way round — a loop read backwards peaks at the other end. A candidate
+    may only win if it keeps today's loop's fit (>= 90% of its mean flow), road
+    ridden once (>= today's - 5 points) and the time budget. Today's loop is
+    itself a candidate, so the arc loop can only equal or improve on its shape.
+    """
+    cells = load_cells() if cells is None else cells
+    edges = load_edges() if edges is None else edges
+    if graph is None:
+        graph = build_graph(edges, cells, rider, z_star, tau=tau, lam=lam, osm=osm,
+                            mode=mode)
+    base = route_loop(start, hours, rider, z_star, graph=graph, cells=cells, edges=edges,
+                      lam=lam, tau=tau, osm=osm, tolerance=tolerance,
+                      n_candidates=n_candidates, reuse_penalty=reuse_penalty, mode=mode)
+    if not base.ok:
+        return base
+
+    setup = _loop_setup(graph, start, hours, cells)
+    if isinstance(setup, Route):                # cannot happen once base is ok; be explicit
+        return base
+    si, fit, sec, order = setup["si"], setup["fit"], setup["sec"], setup["order"]
+    total_t, budget = setup["total_t"], setup["budget"]
+    flow_by_node = (graph.scored["flow"].reindex(graph.nodes)
+                    .fillna(0.0).to_numpy(dtype=float))
+
+    bidx = [graph.index[c] for c in base.cells]
+    b_flow = float(flow_by_node[bidx].mean())
+    b_distinct = len(set(bidx)) / len(bidx)
+    bx, bp = loop_profile(graph, bidx)
+    b_err = arc_error(bx, bp)
+
+    ring = set(int(m) for m in order[:n_candidates])
+    gems = []
+    for c in gem_cells:
+        m = graph.index.get(str(c))
+        if (m is not None and m not in ring and np.isfinite(total_t[m])
+                and 0.5 * budget <= total_t[m] <= budget):
+            gems.append(int(m))
+    gem_set = set(gems)
+    target = hours * 60.0
+    tol = max(float(tolerance), abs(float(base.summary.get("budget_fill", 1.0)) - 1.0))
+
+    best = (b_err, bidx, False, False)
+    for mid, idx, mins in _loop_paths(graph, si, list(order[:n_candidates]) + gems,
+                                      fit, sec, reuse_penalty):
+        distinct = len(set(idx)) / len(idx)
+        if (float(flow_by_node[idx].mean()) < ARC_MIN_FLOW_RATIO * b_flow
+                or distinct < b_distinct - ARC_MAX_DISTINCT_DROP):
+            continue
+        for rev in (False, True):
+            path = idx[::-1] if rev else idx
+            m = mins
+            if rev:
+                s, ok = _path_sum_checked(sec, path)
+                if not ok:
+                    continue
+                m = s / 60.0
+            if not (1.0 - tol) * target <= m <= (1.0 + tol) * target:
+                continue
+            e = arc_error(*loop_profile(graph, path))
+            if e < best[0] - 1e-12:
+                best = (e, path, rev, mid in gem_set)
+
+    r = _assemble(graph, best[1])
+    if not r.ok:
+        return base
+    ax, ap = loop_profile(graph, best[1])
+    r.summary.update({
+        "distinct_share": len(set(best[1])) / len(best[1]),
+        "budget_fill": r.summary["minutes"] / max(target, 1.0),
+        "is_loop": True, "budget_min": target,
+        "turnaround": base.summary.get("turnaround"),
+        "arc_error": best[0], "arc_peak_at": float(ax[int(np.argmax(ap))]),
+        "base_arc_error": b_err, "base_arc_peak_at": float(bx[int(np.argmax(bp))]),
+        "base_mean_flow": b_flow, "base_distinct_share": b_distinct,
+        "base_minutes": float(base.summary["minutes"]),
+        "arc_changed": list(best[1]) != list(bidx), "arc_reversed": bool(best[2]),
+        "arc_turnaround_gem": bool(best[3]), "gem_candidates": len(gems)})
+    r.note = (f"Loop composed as an arc: warm-up, the best riding around "
+              f"{r.summary['arc_peak_at']:.0%} of the way, an easy return. "
+              f"{r.summary['distinct_share']:.0%} of the cells are ridden once.")
+    return r
 
 
 def compare_routes(a: Route, b: Route) -> dict:

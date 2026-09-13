@@ -1,0 +1,600 @@
+{
+ "preregistered": {
+  "RIDER": "userA",
+  "ARC_DIAL": 0.5,
+  "ARC_HOURS": [
+   1.0,
+   2.0,
+   3.0
+  ],
+  "ARC_BETTER": 0.75,
+  "ARC_PEAK_WINDOW": [
+   0.55,
+   0.8
+  ],
+  "ARC_PASS_N": 9,
+  "ARC_PARTIAL_N": 5,
+  "PARETO_DIALS": [
+   0.15,
+   0.3,
+   0.5,
+   0.7,
+   0.9
+  ],
+  "PARETO_MIN_FRONT": 3,
+  "PARETO_PASS_SHARE": 0.5,
+  "COMMUTE_KM": [
+   5.0,
+   20.0
+  ],
+  "COMMUTE_IN_BOX": 0.5,
+  "COMMUTE_JACCARD": 0.5,
+  "COMMUTE_MIN_HABITUAL": 10,
+  "HALF_MIN_TRAV": 10,
+  "RELIABLE_RHO": 0.5,
+  "URBAN_HOURS": 1.0,
+  "URBAN_PASS_N": 5,
+  "N_BOOT": 2000,
+  "SEED": 7,
+  "URBAN_TOWNS": {
+   "Weilheim": [
+    47.84,
+    11.14
+   ],
+   "Garmisch-Partenkirchen": [
+    47.49,
+    11.1
+   ],
+   "Starnberg": [
+    48.0,
+    11.34
+   ],
+   "Bad Toelz": [
+    47.76,
+    11.56
+   ],
+   "Miesbach": [
+    47.79,
+    11.83
+   ],
+   "Murnau": [
+    47.68,
+    11.2
+   ]
+  }
+ },
+ "arc_loop": {
+  "dial": 0.5,
+  "rider": "userA",
+  "loops": [
+   {
+    "start": "kochel",
+    "hours": 1.0,
+    "ok": true,
+    "achieved": false,
+    "base_arc_error": 0.353,
+    "arc_error": 0.338,
+    "base_peak_at": 0.512,
+    "arc_peak_at": 0.562,
+    "base_minutes": 60.002,
+    "arc_minutes": 67.272,
+    "base_km": 70.119,
+    "arc_km": 78.589,
+    "base_distinct": 0.97,
+    "arc_distinct": 0.924,
+    "base_mean_flow_lenweighted": 0.252,
+    "arc_mean_flow_lenweighted": 0.251,
+    "shared_cells": 0.947,
+    "changed": true,
+    "reversed": false,
+    "turnaround_gem": true,
+    "gem_candidates": 15,
+    "ms_base": 115,
+    "ms_arc": 302
+   },
+   {
+    "start": "kochel",
+    "hours": 2.0,
+    "ok": true,
+    "achieved": true,
+    "base_arc_error": 0.328,
+    "arc_error": 0.229,
+    "base_peak_at": 0.487,
+    "arc_peak_at": 0.787,
+    "base_minutes": 118.7,
+    "arc_minutes": 106.396,
+    "base_km": 133.38,
+    "arc_km": 122.66,
+    "base_distinct": 0.936,
+    "arc_distinct": 0.975,
+    "base_mean_flow_lenweighted": 0.338,
+    "arc_mean_flow_lenweighted": 0.326,
+    "shared_cells": 0.957,
+    "changed": true,
+    "reversed": true,
+    "turnaround_gem": false,
+    "gem_candidates": 19,
+    "ms_base": 152,
+    "ms_arc": 401
+   },
+   {
+    "start": "kochel",
+    "hours": 3.0,
+    "ok": true,
+    "achieved": false,
+    "base_arc_error": 0.404,
+    "arc_error": 0.381,
+    "base_peak_at": 0.362,
+    "arc_peak_at": 0.412,
+    "base_minutes": 144.858,
+    "arc_minutes": 144.86,
+    "base_km": 158.546,
+    "arc_km": 159.219,
+    "base_distinct": 0.858,
+    "arc_distinct": 0.856,
+    "base_mean_flow_lenweighted": 0.284,
+    "arc_mean_flow_lenweighted": 0.282,
+    "shared_cells": 0.997,
+    "changed": true,
+    "reversed": true,
+    "turnaround_gem": false,
+    "gem_candidates": 6,
+    "ms_base": 159,
+    "ms_arc": 376
+   },
+   {
+    "start": "holzkirchen",
+    "hours": 1.0,
+    "ok": true,
+    "achieved": false,
+    "base_arc_error": 0.357,
+    "arc_error": 0.254,
+    "base_peak_at": 0.113,
+    "arc_peak_at": 0.887,
+    "base_minutes": 55.823,
+    "arc_minutes": 54.787,
+    "base_km": 57.989,
+    "arc_km": 57.989,
+    "base_distinct": 0.921,
+    "arc_distinct": 0.921,
+    "base_mean_flow_lenweighted": 0.314,
+    "arc_mean_flow_lenweighted": 0.312,
+    "shared_cells": 1.0,
+    "changed": true,
+    "reversed": true,
+    "turnaround_gem": false,
+    "gem_candidates": 10,
+    "ms_base": 102,
+    "ms_arc": 265
+   },
+   {
+    "start": "holzkirchen",
+    "hours": 2.0,
+    "ok": true,
+    "achieved": false,
+    "base_arc_error": 0.356,
+    "arc_error": 0.311,
+    "base_peak_at": 0.463,
+    "arc_peak_at": 0.537,
+    "base_minutes": 98.268,
+    "arc_minutes": 96.003,
+    "base_km": 98.213,
+    "arc_km": 98.213,
+    "base_distinct": 0.932,
+    "arc_distinct": 0.932,
+    "base_mean_flow_lenweighted": 0.345,
+    "arc_mean_flow_lenweighted": 0.351,
+    "shared_cells": 1.0,
+    "changed": true,
+    "reversed": true,
+    "turnaround_gem": false,
+    "gem_candidates": 21,
+    "ms_base": 130,
+    "ms_arc": 304
+   },
+   {
+    "start": "holzkirchen",
+    "hours": 3.0,
+    "ok": true,
+    "achieved": false,
+    "base_arc_error": 0.439,
+    "arc_error": 0.357,
+    "base_peak_at": 0.512,
+    "arc_peak_at": 0.537,
+    "base_minutes": 176.49,
+    "arc_minutes": 163.471,
+    "base_km": 192.861,
+    "arc_km": 180.911,
+    "base_distinct": 0.879,
+    "arc_distinct": 0.902,
+    "base_mean_flow_lenweighted": 0.315,
+    "arc_mean_flow_lenweighted": 0.327,
+    "shared_cells": 0.964,
+    "changed": true,
+    "reversed": true,
+    "turnaround_gem": false,
+    "gem_candidates": 3,
+    "ms_base": 159,
+    "ms_arc": 390
+   },
+   {
+    "start": "schliersee",
+    "hours": 1.0,
+    "ok": true,
+    "achieved": false,
+    "base_arc_error": 0.476,
+    "arc_error": 0.365,
+    "base_peak_at": 0.338,
+    "arc_peak_at": 0.037,
+    "base_minutes": 59.644,
+    "arc_minutes": 70.807,
+    "base_km": 69.943,
+    "arc_km": 82.591,
+    "base_distinct": 0.912,
+    "arc_distinct": 0.966,
+    "base_mean_flow_lenweighted": 0.255,
+    "arc_mean_flow_lenweighted": 0.255,
+    "shared_cells": 0.242,
+    "changed": true,
+    "reversed": true,
+    "turnaround_gem": false,
+    "gem_candidates": 9,
+    "ms_base": 120,
+    "ms_arc": 294
+   },
+   {
+    "start": "schliersee",
+    "hours": 2.0,
+    "ok": true,
+    "achieved": false,
+    "base_arc_error": 0.416,
+    "arc_error": 0.318,
+    "base_peak_at": 0.537,
+    "arc_peak_at": 0.562,
+    "base_minutes": 134.165,
+    "arc_minutes": 121.234,
+    "base_km": 152.639,
+    "arc_km": 141.231,
+    "base_distinct": 0.975,
+    "arc_distinct": 0.98,
+    "base_mean_flow_lenweighted": 0.281,
+    "arc_mean_flow_lenweighted": 0.301,
+    "shared_cells": 0.454,
+    "changed": true,
+    "reversed": true,
+    "turnaround_gem": true,
+    "gem_candidates": 14,
+    "ms_base": 169,
+    "ms_arc": 415
+   },
+   {
+    "start": "schliersee",
+    "hours": 3.0,
+    "ok": true,
+    "achieved": false,
+    "base_arc_error": 0.375,
+    "arc_error": 0.299,
+    "base_peak_at": 0.713,
+    "arc_peak_at": 0.863,
+    "base_minutes": 194.276,
+    "arc_minutes": 202.799,
+    "base_km": 225.619,
+    "arc_km": 236.244,
+    "base_distinct": 0.968,
+    "arc_distinct": 0.95,
+    "base_mean_flow_lenweighted": 0.329,
+    "arc_mean_flow_lenweighted": 0.329,
+    "shared_cells": 0.966,
+    "changed": true,
+    "reversed": true,
+    "turnaround_gem": false,
+    "gem_candidates": 20,
+    "ms_base": 216,
+    "ms_arc": 494
+   },
+   {
+    "start": "lenggries",
+    "hours": 1.0,
+    "ok": true,
+    "achieved": false,
+    "base_arc_error": 0.435,
+    "arc_error": 0.342,
+    "base_peak_at": 0.838,
+    "arc_peak_at": 0.863,
+    "base_minutes": 60.453,
+    "arc_minutes": 64.355,
+    "base_km": 70.799,
+    "arc_km": 76.506,
+    "base_distinct": 0.977,
+    "arc_distinct": 0.984,
+    "base_mean_flow_lenweighted": 0.241,
+    "arc_mean_flow_lenweighted": 0.26,
+    "shared_cells": 0.755,
+    "changed": true,
+    "reversed": true,
+    "turnaround_gem": true,
+    "gem_candidates": 3,
+    "ms_base": 117,
+    "ms_arc": 297
+   },
+   {
+    "start": "lenggries",
+    "hours": 2.0,
+    "ok": true,
+    "achieved": true,
+    "base_arc_error": 0.349,
+    "arc_error": 0.244,
+    "base_peak_at": 0.263,
+    "arc_peak_at": 0.637,
+    "base_minutes": 120.784,
+    "arc_minutes": 126.138,
+    "base_km": 134.314,
+    "arc_km": 138.615,
+    "base_distinct": 0.918,
+    "arc_distinct": 0.904,
+    "base_mean_flow_lenweighted": 0.385,
+    "arc_mean_flow_lenweighted": 0.374,
+    "shared_cells": 0.981,
+    "changed": true,
+    "reversed": true,
+    "turnaround_gem": false,
+    "gem_candidates": 23,
+    "ms_base": 157,
+    "ms_arc": 354
+   },
+   {
+    "start": "lenggries",
+    "hours": 3.0,
+    "ok": true,
+    "achieved": false,
+    "base_arc_error": 0.496,
+    "arc_error": 0.376,
+    "base_peak_at": 0.188,
+    "arc_peak_at": 0.938,
+    "base_minutes": 161.698,
+    "arc_minutes": 189.086,
+    "base_km": 187.164,
+    "arc_km": 213.87,
+    "base_distinct": 0.885,
+    "arc_distinct": 0.992,
+    "base_mean_flow_lenweighted": 0.258,
+    "arc_mean_flow_lenweighted": 0.285,
+    "shared_cells": 0.194,
+    "changed": true,
+    "reversed": false,
+    "turnaround_gem": true,
+    "gem_candidates": 18,
+    "ms_base": 168,
+    "ms_arc": 423
+   }
+  ],
+  "achieved": 2,
+  "of": 12,
+  "achieved_by_reversal_only": 0,
+  "median_arc_error": [
+   0.39,
+   0.328
+  ],
+  "verdict": "FAIL"
+ },
+ "pareto": {
+  "dials": [
+   0.15,
+   0.3,
+   0.5,
+   0.7,
+   0.9
+  ],
+  "modes": [
+   "flow",
+   "scenic",
+   "mountain"
+  ],
+  "pairs": 200,
+  "distinct_routes_median": 6.0,
+  "front_size_counts": {
+   "1": 20,
+   "2": 61,
+   "3": 28,
+   "4": 26,
+   "5": 31,
+   "6": 18,
+   "7": 9,
+   "8": 4,
+   "9": 2,
+   "12": 1
+  },
+  "share_front_ge_3": 0.595,
+  "on_fronts_ge_2_extra_minutes_median": 3.5,
+  "on_fronts_ge_2_extra_demand_deg_median": 0.213,
+  "share_fronts_using_a_non_flow_mode": 0.785,
+  "verdict": "PASS"
+ },
+ "commute": {
+  "userA": {
+   "rides": 100,
+   "commute_length": 45,
+   "commute_length_in_box": 0,
+   "habitual_in_box": 0
+  },
+  "userC": {
+   "rides": 224,
+   "commute_length": 106,
+   "commute_length_in_box": 1,
+   "habitual_in_box": 0
+  },
+  "note": "user A km from the BMW manifest; user C km summed from map-matched steps < 500 m",
+  "verdict": "BLOCKED-COVERAGE"
+ },
+ "stop_rate": {
+  "rho": 0.511,
+  "ci": [
+   0.466,
+   0.554
+  ],
+  "n": 1618,
+  "verdict": "RELIABLE"
+ },
+ "urban_wander": {
+  "hours": 1.0,
+  "towns": {
+   "Weilheim": {
+    "ok": true,
+    "flow": {
+     "km": 69.09,
+     "minutes": 64.095,
+     "distinct": 0.958,
+     "stop_rate": 0.045,
+     "n_rides": 17.317,
+     "residential_share": 0.024,
+     "novel_to_rider_share": 1.0
+    },
+    "urban": {
+     "km": 64.96,
+     "minutes": 60.482,
+     "distinct": 0.915,
+     "stop_rate": 0.062,
+     "n_rides": 15.146,
+     "residential_share": 0.0,
+     "novel_to_rider_share": 1.0
+    },
+    "shared_cells": 0.01,
+    "urban_moves_less_and_novel": false
+   },
+   "Garmisch-Partenkirchen": {
+    "ok": true,
+    "flow": {
+     "km": 58.017,
+     "minutes": 51.462,
+     "distinct": 0.601,
+     "stop_rate": 0.067,
+     "n_rides": 70.462,
+     "residential_share": 0.042,
+     "novel_to_rider_share": 0.077
+    },
+    "urban": {
+     "km": 58.022,
+     "minutes": 51.53,
+     "distinct": 0.604,
+     "stop_rate": 0.067,
+     "n_rides": 70.0,
+     "residential_share": 0.042,
+     "novel_to_rider_share": 0.083
+    },
+    "shared_cells": 0.989,
+    "urban_moves_less_and_novel": false
+   },
+   "Starnberg": {
+    "ok": true,
+    "flow": {
+     "km": 64.095,
+     "minutes": 59.498,
+     "distinct": 0.685,
+     "stop_rate": 0.117,
+     "n_rides": 19.021,
+     "residential_share": 0.103,
+     "novel_to_rider_share": 0.925
+    },
+    "urban": {
+     "km": 77.902,
+     "minutes": 68.261,
+     "distinct": 0.819,
+     "stop_rate": 0.063,
+     "n_rides": 21.456,
+     "residential_share": 0.033,
+     "novel_to_rider_share": 0.934
+    },
+    "shared_cells": 0.186,
+    "urban_moves_less_and_novel": false
+   },
+   "Bad Toelz": {
+    "ok": true,
+    "flow": {
+     "km": 66.043,
+     "minutes": 57.177,
+     "distinct": 0.907,
+     "stop_rate": 0.059,
+     "n_rides": 18.7,
+     "residential_share": 0.033,
+     "novel_to_rider_share": 0.573
+    },
+    "urban": {
+     "km": 61.206,
+     "minutes": 53.452,
+     "distinct": 0.95,
+     "stop_rate": 0.052,
+     "n_rides": 19.418,
+     "residential_share": 0.035,
+     "novel_to_rider_share": 0.567
+    },
+    "shared_cells": 0.765,
+    "urban_moves_less_and_novel": false
+   },
+   "Miesbach": {
+    "ok": true,
+    "flow": {
+     "km": 50.895,
+     "minutes": 54.746,
+     "distinct": 0.789,
+     "stop_rate": 0.09,
+     "n_rides": 10.114,
+     "residential_share": 0.033,
+     "novel_to_rider_share": 0.821
+    },
+    "urban": {
+     "km": 50.895,
+     "minutes": 54.746,
+     "distinct": 0.789,
+     "stop_rate": 0.09,
+     "n_rides": 10.114,
+     "residential_share": 0.033,
+     "novel_to_rider_share": 0.821
+    },
+    "shared_cells": 1.0,
+    "urban_moves_less_and_novel": false
+   },
+   "Murnau": {
+    "ok": true,
+    "flow": {
+     "km": 68.001,
+     "minutes": 59.938,
+     "distinct": 0.97,
+     "stop_rate": 0.039,
+     "n_rides": 19.933,
+     "residential_share": 0.024,
+     "novel_to_rider_share": 1.0
+    },
+    "urban": {
+     "km": 68.001,
+     "minutes": 60.015,
+     "distinct": 0.97,
+     "stop_rate": 0.039,
+     "n_rides": 19.861,
+     "residential_share": 0.024,
+     "novel_to_rider_share": 1.0
+    },
+    "shared_cells": 0.994,
+    "urban_moves_less_and_novel": false
+   }
+  },
+  "wins": 0,
+  "of": 6,
+  "note": "BMW's RED inner-city multiplier (x0.45 on residential) stays on in every mode; crowd timestamps are shifted, so time-of-day flow is not computable",
+  "verdict": "FAIL"
+ },
+ "edge_disjoint_return": {
+  "feature": "F4.4",
+  "verdict": "BUILT-EARLIER",
+  "evidence": "route_loop penalises used edges 6x on the return (doc 16); distinct share is reported on every loop"
+ },
+ "gate_visible": {
+  "feature": "F4.7",
+  "verdict": "BUILT-EARLIER",
+  "evidence": "refused edges are deleted and listed with a reason (docs 14, 17)"
+ },
+ "solar_thermal": {
+  "feature": "F4.8",
+  "verdict": "NOT-BUILT",
+  "evidence": "T4 in FEATURES.md; out of scope by the phase plan (doc 19)"
+ }
+}

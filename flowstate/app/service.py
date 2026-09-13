@@ -85,6 +85,8 @@ def init(bake: Path | None = None, force_parquet: bool = False) -> dict:
             _S["character"] = _load_character()
         if _S.get("riders_modes") is None:      # a bake from before Phase 3
             _S["riders_modes"] = _load_riders_modes()
+        if _S.get("answer_types") is None:      # a bake from before Phase 4
+            _S["answer_types"] = _load_answer_types()
     else:
         cells = R.load_cells()
         osm = R.load_osm()
@@ -93,7 +95,8 @@ def init(bake: Path | None = None, force_parquet: bool = False) -> dict:
               "riders": _build_riders(cells), "basemap": None,
               "precomputed": {}, "graphs": {}, "source": "parquet",
               "joy": _load_joy(), "character": _load_character(),
-              "riders_modes": _load_riders_modes()}
+              "riders_modes": _load_riders_modes(),
+              "answer_types": _load_answer_types()}
 
     _S["loaded_s"] = time.time() - t0
     return status()
@@ -576,9 +579,11 @@ def modes() -> list[dict]:
     out = []
     for k in M.MODES:
         v = "DEFAULT" if k == "flow" else (scan.get(k) or {}).get("verdict", "UNTESTED")
-        out.append({"key": k, "verdict": v,
-                    "phase4": k in M.PHASE4_MODES,
-                    "offered": k == "flow" or (v == "PASS" and k not in M.PHASE4_MODES)})
+        # a Phase 4 mode is offered only once its answer type passed (doc 23)
+        p4 = k in M.PHASE4_MODES
+        p4_ok = _at("urban_wander").get("verdict") == "PASS"
+        out.append({"key": k, "verdict": v, "phase4": p4,
+                    "offered": k == "flow" or (v == "PASS" and (not p4 or p4_ok))})
     return out
 
 
@@ -625,3 +630,81 @@ def rhythm_fit(rider_key: str = "userA") -> dict:
     m = M.rhythm_match(c["rhythm_wavelength_m"].to_numpy(dtype=float), wl, t["h_m"])
     return {"ok": True, "verdict": t["verdict"], "wavelength_m": wl, "h_m": t["h_m"],
             "match": dict(zip(c["morton_code"].astype(str), np.round(m, 4)))}
+
+
+# --------------------------------------------------------------------------
+# answer types — Phase 4, doc 23. Offered only where
+# analysis/18_answer_types.py's pre-registered verdict says PASS.
+# --------------------------------------------------------------------------
+
+ANSWER_TYPES_TEST = ROOT / "analysis" / "out" / "answer_types_test.json"
+PARETO_DIALS = (0.15, 0.30, 0.50, 0.70, 0.90)
+
+
+def _load_answer_types() -> dict | None:
+    import json
+    return json.loads(ANSWER_TYPES_TEST.read_text()) if ANSWER_TYPES_TEST.exists() else None
+
+
+def _at(name: str) -> dict:
+    return ((_need().get("answer_types") or {}).get(name)) or {}
+
+
+def gem_cells() -> list[str]:
+    """The crowd gems' 16-char routing cells, best first."""
+    gems = (_need().get("character") or {}).get("gems")
+    return [] if gems is None else [str(c)[:16] for c in gems["morton_code"]]
+
+
+def loop_arc(start, hours: float, rider_key: str = "userA", z_star: float = 0.5,
+             lam: float = R.LAMBDA_DEFAULT, mode: str = "flow") -> dict:
+    """F4.3: the loop composed as a warm-up -> peak at ~2/3 -> easy return. Only if it passed."""
+    t = _at("arc_loop")
+    if t.get("verdict") != "PASS":
+        return {"ok": False, "note": f"arc loop verdict {t.get('verdict', 'UNTESTED')}; "
+                                     f"loop() is the answer"}
+    s = _need()
+    g = _graph(rider_key, z_star, lam, mode)
+    r = R.route_loop_arc(tuple(start), float(hours), s["riders"][rider_key]["rider"],
+                         float(z_star), graph=g, cells=s["cells"], edges=s["edges"],
+                         osm=s["osm"], lam=lam, mode=mode, gem_cells=gem_cells())
+    return _pack(r, g, rider_key, z_star)
+
+
+def nondominated(rows: list[dict]) -> list[dict]:
+    """
+    Distinct routes (by cells) not beaten on both axes: fewer minutes AND more
+    lean asked. Mean demand is the axis because it is absolute; flow is fit to
+    whatever dial produced it and cannot be compared across dial settings.
+    """
+    seen, uniq = set(), []
+    for r in rows:
+        k = tuple(r["cells"])
+        if k not in seen:
+            seen.add(k)
+            uniq.append(r)
+    front = [r for r in uniq
+             if not any(o["minutes"] <= r["minutes"] and o["mean_demand"] >= r["mean_demand"]
+                        and (o["minutes"] < r["minutes"] or o["mean_demand"] > r["mean_demand"])
+                        for o in uniq)]
+    return sorted(front, key=lambda r: r["minutes"])
+
+
+def pareto(a, b, rider_key: str = "userA") -> dict:
+    """F4.2: the time-vs-thrill trade-off for one A -> B, across the dial and the offered modes."""
+    t = _at("pareto")
+    if t.get("verdict") != "PASS":
+        return {"ok": False, "note": f"Pareto verdict {t.get('verdict', 'UNTESTED')}; "
+                                     f"compare() is the answer"}
+    rows = []
+    for m in [x["key"] for x in modes() if x["offered"]]:
+        for z in PARETO_DIALS:
+            r = route(a, b, rider_key, z, mode=m)
+            if r["ok"] and not r["note"]:
+                rows.append({"mode": m, "z_star": z, "cells": r["cells"],
+                             "minutes": r["summary"]["minutes"], "km": r["summary"]["km"],
+                             "mean_demand": r["summary"]["mean_demand"]})
+    front = nondominated(rows)
+    return {"ok": bool(front), "verdict": t["verdict"],
+            "frontier": [{k: v for k, v in r.items() if k != "cells"} for r in front],
+            "routes_tried": len(rows)}

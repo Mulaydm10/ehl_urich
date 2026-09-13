@@ -139,6 +139,16 @@ and report it. osmnx topology is the only fix and it is **not in this plan**.
 
 ## Phase 4 — new answer types  (Layer 4)
 
+> **DONE — doc 23.**
+> - **F4.3 arc loop FAIL** (2 of 12). The network caps it at 3 of 12: only three loops have any
+>   candidate with the right shape and the peak at ~2/3. Reversal did most of the improving.
+> - **F4.2 Pareto PASS, short.** ≥ 3 non-dominated routes on 60% of pairs, but a median +3.5 min buys
+>   +0.2°, and neighbouring routes share 95% of cells.
+> - **F4.6 commute BLOCKED-COVERAGE** (0 and 1 in-box commutes). **F4.5 urban wander FAIL** (0 of 6
+>   towns). `stop_rate` split-half RELIABLE at 0.51.
+> - **F4.4 and F4.7** were built earlier; **F4.8** not built.
+> - `route_loop` internals are now shared with the arc loop, and all 21 baked answers are identical.
+
 Alongside `route_a_to_b` / `route_loop`:
 - **F4.3 arc loop** — re-rank the existing loop candidates by distance to a target flow arc
   (warm-up → peak at 65-70% → easy return), and add Phase 2 gems as turnarounds. Cheapest item here.

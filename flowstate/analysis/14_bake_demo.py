@@ -104,11 +104,14 @@ if __name__ == "__main__":
     print("[6] riders and modes verdicts (analysis/17_riders_modes.py output)")
     riders_modes = S._load_riders_modes()
     print(f"    {'none - run analysis/17_riders_modes.py' if riders_modes is None else 'yes'}")
+    answer_types = S._load_answer_types()
+    print(f"    answer types {'none - run analysis/18_answer_types.py' if answer_types is None else 'yes'}")
 
     print("[7] pre-solving the presets")
     payload = {"cells": cells, "edges": edges, "osm": osm, "riders": riders,
                "basemap": basemap, "precomputed": {}, "joy": joy,
-               "character": character, "riders_modes": riders_modes}
+               "character": character, "riders_modes": riders_modes,
+               "answer_types": answer_types}
     S._S = {**payload, "graphs": {}, "source": "bake(build)",
             "loaded_s": 0.0}
 
