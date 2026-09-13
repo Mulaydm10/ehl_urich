@@ -30,7 +30,7 @@ export function GroupScreen() {
       <BackHeader to="/more" title={group.name} detail={group.startsAt} />
 
       <section className="map-section">
-        <RouteMap path={route.path} markers={markers} height={220} active />
+        <RouteMap path={route.path} markers={markers} height={230} active interactive />
         <div className="flex items-center justify-between p-5"><div><p className="label">Together on the road</p><h2 className="mt-2 text-[17px] font-medium">{route.name}</h2></div><div className="text-right"><span className="readout text-[36px]">{group.riders.length}</span><p className="label mt-1">riders</p></div></div>
       </section>
 

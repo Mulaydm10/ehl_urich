@@ -4,6 +4,7 @@ import { useAppState } from '../state/AppState'
 import { BikeImage } from '../components/BikeImage'
 import { EmptyState, SectionTitle, Unavailable } from '../components/primitives'
 import { RouteMap } from '../components/RouteMap'
+import { LiveMap } from '../components/LiveMap'
 
 const CONNECTION_LABEL = { connected: 'Connected', last_seen: 'Last seen', phone_only: 'Phone only' } as const
 const ACTIONS = [
@@ -70,6 +71,11 @@ export function RideScreen() {
         <div className="label">{tile.label}</div><div className="mt-3 flex flex-wrap items-baseline gap-1.5"><span className={`readout ${reading.value.length > 6 ? 'text-[25px]' : 'text-[32px]'}`}>{reading.value}</span>{reading.unit ? <span className="unit">{reading.unit}</span> : null}</div>
         {reading.hint ? <p className="caption mt-2 text-[10px]">{reading.hint}</p> : null}
       </div> })}
+    </section>
+
+    <SectionTitle title="Where you are" subtitle="Device GPS on satellite, terrain or street tiles" />
+    <section className="panel mx-6 overflow-hidden" aria-label="Live position">
+      <LiveMap route={lastRide?.path ?? []} height={230} />
     </section>
 
     <SectionTitle title="Last ride" action={lastRide ? <Link to={`/ride/${lastRide.id}`} className="text-action">View <ChevronRight size={14} /></Link> : undefined} />

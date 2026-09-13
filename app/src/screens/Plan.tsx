@@ -136,7 +136,7 @@ export function PlanScreen() {
       <PageHeader eyebrow="Navigation" title="Plan your ride" />
       <PlannerSwitch current="plan" />
       <section className="map-section">
-        <RouteMap path={route.path} markers={markers} height={170} active />
+        <RouteMap path={route.path} markers={markers} height={200} active interactive />
         <div className="p-5">
           <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="text-[18px] font-medium tracking-[-0.025em]">{route.name}</h2><p className="caption mt-1">{route.roundTrip ? 'Round trip' : `${route.origin} → ${route.destination}`}</p></div><span className="status-pill shrink-0" data-live>Selected</span></div>
           <div className="mt-6 grid grid-cols-3 gap-4">

@@ -323,7 +323,8 @@ export function ThrillScreen() {
                 : [{ segments: shown.segments, label: dial }]
             }
             refusals={shown.refusals}
-            height={210}
+            height={250}
+            interactive
           />
           {summary ? (
             <>
