@@ -15,6 +15,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { FsRouteResult } from '../domain/types'
 import {
   copilot,
+  FIX_MAX_AGE_MS,
   getActiveRoute,
   setActiveRoute,
   setLiveFix,
@@ -25,6 +26,7 @@ import {
 import { useLivePosition, type LivePosition, type LiveState } from './useLivePosition'
 
 const TICK_MS = 20000
+const AGE_CHECK_MS = 5000   // how often a fix is re-read for its own age
 const MOVED_M = 40          // below this the fix is GPS noise, not progress
 const IDLE_TICK_MS = 120000 // ... but still check in occasionally when parked
 
@@ -66,7 +68,7 @@ export function useCopilot(
   enabled: boolean,
   opts: { riderKey?: string; thrill?: number; mode?: string; bikeId?: string | null } = {},
 ): CopilotView {
-  const { state: liveState, position } = useLivePosition(enabled)
+  const { state: liveState, position: fix } = useLivePosition(enabled)
   const [suggestion, setSuggestion] = useState<CopilotSuggestion | null>(null)
   const [why, setWhy] = useState<string | null>(null)
   const [reachable, setReachable] = useState(true)
@@ -85,6 +87,18 @@ export function useCopilot(
 
   useEffect(() => subscribeActiveRoute(setRoute), [])
 
+  // A fix stops being where the bike is long before the watch reports an
+  // error. Nothing downstream — figures on screen, ticks, the assistant's
+  // tools — may use one the bike has ridden away from, so it is aged out
+  // here rather than in each caller.
+  const [clock, setClock] = useState(() => Date.now())
+  useEffect(() => {
+    if (!enabled) return
+    const id = window.setInterval(() => setClock(Date.now()), AGE_CHECK_MS)
+    return () => window.clearInterval(id)
+  }, [enabled])
+  const position = fix && clock - fix.at <= FIX_MAX_AGE_MS ? fix : null
+
   // Publish the fix so the assistant's mid-ride tools can re-plan from where
   // the bike actually is, whichever screen the rider is talking from.
   useEffect(() => {
@@ -102,6 +116,12 @@ export function useCopilot(
       })
     }
   }, [enabled, position])
+
+  // Advice worked out from a fix that has expired is no longer advice about
+  // this road.
+  useEffect(() => {
+    if (!position) setSuggestion(null)
+  }, [position])
 
   useEffect(() => {
     if (!enabled) {
@@ -189,7 +209,9 @@ export function useCopilot(
     ? 'off'
     : !reachable
       ? 'unreachable'
-      : gpsState(liveState)
+      : position
+        ? gpsState(liveState)
+        : 'no_gps'
 
   return { state, suggestion, why, route, position, ticks, accept, dismiss, busy }
 }

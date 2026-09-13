@@ -206,6 +206,12 @@ export function NavigateScreen() {
     }
   }, [])
 
+  // "20.5 km ahead" was measured from a fix the bike has left, so the list
+  // goes with the fix rather than sitting there being read as current.
+  useEffect(() => {
+    if (!position) setStops(null)
+  }, [position])
+
   const onHeard = useCallback(
     (text: string) => {
       setHeard(text)
@@ -531,7 +537,8 @@ export function NavigateScreen() {
         ) : null}
         {!position ? (
           <p className="caption mt-2">
-            No GPS fix yet — nothing can be re-planned from here until there is one.
+            No live GPS fix — the figures and anything measured from your position
+            are cleared, and nothing is re-planned from here until there is one.
           </p>
         ) : null}
       </section>
