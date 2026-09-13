@@ -18,11 +18,14 @@ export function useBikeLink(): { link: BikeLinkClient; status: LinkStatus | null
   const [caps, setCaps] = useState<LinkCapabilities | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (withCaps = true) => {
     try {
-      const [s, c] = await Promise.all([link.status(), bike ? link.capabilities(bike.id) : Promise.resolve(null)])
+      const [s, c] = await Promise.all([
+        link.status(),
+        withCaps && bike ? link.capabilities(bike.id) : Promise.resolve(undefined),
+      ])
       setStatus(s)
-      setCaps(c)
+      if (c !== undefined) setCaps(c)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Bike link unreachable.')
@@ -31,7 +34,16 @@ export function useBikeLink(): { link: BikeLinkClient; status: LinkStatus | null
 
   useEffect(() => {
     void refresh()
-    return link.onChange(() => { void refresh() })
+    // Radio events arrive dozens of times a second during a scan. Each one used to
+    // re-read status AND re-fetch the bike's capabilities from the backend (~12
+    // GETs/s on a real phone). Coalesce them into one status read per second and
+    // leave capabilities to explicit refreshes (buttons, connect, bike change).
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const off = link.onChange(() => {
+      if (timer) return
+      timer = setTimeout(() => { timer = null; void refresh(false) }, 1000)
+    })
+    return () => { if (timer) clearTimeout(timer); off() }
   }, [link, refresh])
 
   return { link, status, caps, refresh, error }

@@ -41,10 +41,26 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import uuid
 from typing import Literal
 from xml.sax.saxutils import escape
+
+# Bluetooth hardware addresses of devices near the phone belong to other people.
+# The trail keeps the first three octets and the last one, enough to tell two
+# devices apart in a log, and never the full address.
+_MAC = re.compile(r"\b([0-9A-Fa-f]{2}):([0-9A-Fa-f]{2}):([0-9A-Fa-f]{2}):[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:([0-9A-Fa-f]{2})\b")
+
+
+def _redact(value):
+    if isinstance(value, str):
+        return _MAC.sub(r"\1:\2:\3:…:\4", value)
+    if isinstance(value, dict):
+        return {k: _redact(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_redact(v) for v in value]
+    return value
 
 TransportKind = Literal["stand_in", "native_ble"]
 ConnectionState = Literal["unavailable", "disconnected", "connecting", "connected"]
@@ -148,22 +164,30 @@ class DebugTrail:
 
     def ingest(self, events: list[dict], session: str | None = None) -> dict:
         """Phone-side events keep their own timestamps/ordering fields."""
-        taken = 0
+        taken = skipped = 0
         for e in events:
             if not isinstance(e, dict):
                 continue
+            op = str(e.get("op") or "phone.event")
+            # A busy room is hundreds of anonymous BLE advertisers per scan; one
+            # event each buries the events that matter at the bike. Unnamed,
+            # non-BMW scan hits are counted, not logged.
+            if (op == "scan.result" and not e.get("icc")
+                    and str(e.get("name") or "Unnamed").startswith("Unnamed")):
+                skipped += 1
+                continue
             self.add(
                 str(e.get("source") or "phone"),
-                str(e.get("op") or "phone.event"),
+                op,
                 str(e.get("level") or "info"),
                 session=session or e.get("session"),
                 phoneSeq=e.get("seq"),
                 phoneAt=e.get("at"),
-                detail={k: v for k, v in e.items()
-                        if k not in ("source", "op", "level", "seq", "at", "session")} or None,
+                detail=_redact({k: v for k, v in e.items()
+                                if k not in ("source", "op", "level", "seq", "at", "session")}) or None,
             )
             taken += 1
-        return {"ok": True, "accepted": taken, "nextSeq": self.next_seq}
+        return {"ok": True, "accepted": taken, "skippedUnnamed": skipped, "nextSeq": self.next_seq}
 
     def since(self, seq: int = 0, limit: int = 500) -> dict:
         out = [e for e in self.events if e["seq"] > seq][:limit]
