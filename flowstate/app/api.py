@@ -39,6 +39,7 @@ import assistant as assistant_mod  # noqa: E402
 import bike_link  # noqa: E402
 import bmw_cloud  # noqa: E402
 import copilot as copilot_mod  # noqa: E402
+import via as via_mod  # noqa: E402
 
 # ---- pick the real engine if its data is here, else the mock ---------------
 ENGINE: Any
@@ -96,6 +97,14 @@ def ok(o: Any) -> JSONResponse:
 class RouteReq(BaseModel):
     a: list[float]
     b: list[float]
+    rider_key: str = "userA"
+    z_star: float = 0.5
+    mode: str = "flow"
+
+
+class ViaReq(BaseModel):
+    """Start, the stops in the rider's own order, and the end."""
+    points: list[list[float]]
     rider_key: str = "userA"
     z_star: float = 0.5
     mode: str = "flow"
@@ -316,6 +325,12 @@ def modes() -> JSONResponse:
 @app.post("/api/route")
 def route(req: RouteReq) -> JSONResponse:
     return ok(ENGINE.route(req.a, req.b, req.rider_key, req.z_star, mode=req.mode))
+
+
+@app.post("/api/route/via")
+def route_via(req: ViaReq) -> JSONResponse:
+    return ok(via_mod.plan_via(ENGINE.route, req.points, req.rider_key,
+                               req.z_star, mode=req.mode))
 
 
 @app.post("/api/loop")

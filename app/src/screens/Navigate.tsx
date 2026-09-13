@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { CircleMarker, Polyline, Tooltip } from 'react-leaflet'
 import type { LatLngBoundsExpression, LatLngExpression } from 'leaflet'
-import { ArrowLeft, Compass, Loader2, Mic, MicOff, Sparkles } from 'lucide-react'
+import { ArrowLeft, Compass, Loader2, Mic, MicOff, Plus, Sparkles, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { BaseMap } from '../components/BaseMap'
 import { useAccent } from '../components/useAccent'
@@ -19,6 +19,7 @@ import {
   type RerouteChange,
 } from '../services/navigate'
 import { http } from '../services/http'
+import { flowstate } from '../services/flowstate'
 import { realtimeSupported, startRealtime, type RealtimeHandle, type RealtimeState } from '../services/realtime'
 import { getAssistantStatus, type AssistantStatus } from '../services/assistant'
 import { DIAL_Z, fitFor } from '../domain/bikeFit'
@@ -98,6 +99,10 @@ export function NavigateScreen() {
   const [said, setSaid] = useState<string | null>(null)
   const [heard, setHeard] = useState<string | null>(null)
   const [stops, setStops] = useState<StopAhead[] | null>(null)
+  // Stops the rider put on the plan, in his order. The route is re-planned
+  // through them from wherever he is each time the list changes.
+  const [via, setVia] = useState<StopAhead[]>([])
+  const [viaBusy, setViaBusy] = useState(false)
   const [cloud, setCloud] = useState<AssistantStatus | null>(null)
   const [live, setLive] = useState<RealtimeState | null>(null)
   const [liveDetail, setLiveDetail] = useState<string | null>(null)
@@ -135,6 +140,51 @@ export function NavigateScreen() {
       const line = describeReroute(res)
       setSaid(line)
       speak(line)
+    },
+    [],
+  )
+
+  /**
+   * Re-plan here -> chosen stops -> the destination already being ridden to.
+   *
+   * The rider's own list wins: nothing is reordered for him, because the
+   * order is the part of the plan only he knows the reason for.
+   */
+  const replanVia = useCallback(
+    async (next: StopAhead[]) => {
+      const ctx = rideContext()
+      const dest = ctx?.route?.destination
+      if (!ctx || !dest) {
+        setSaid('No plan loaded, so there is nowhere to add a stop on the way to.')
+        return
+      }
+      setViaBusy(true)
+      try {
+        const points: [number, number][] = [
+          [ctx.lat, ctx.lon],
+          ...next.map((s) => [s.lat, s.lon] as [number, number]),
+          [dest[0], dest[1]],
+        ]
+        const plan = next.length
+          ? await flowstate.routeVia(points, ctx.rider_key, ctx.thrill, ctx.mode)
+          : await flowstate.route(points[0], points[1], ctx.rider_key, ctx.thrill, ctx.mode)
+        if (!plan.ok) {
+          setSaid(plan.note || 'The engine could not plan through those stops.')
+          return
+        }
+        setVia(next)
+        setActiveRoute(plan)
+        const s = summaryOf(plan)
+        const line = s
+          ? `${next.length} stop${next.length === 1 ? '' : 's'} on the way · ${Math.round(s.km)} km, ${Math.round(s.minutes)} minutes.`
+          : 'Re-planned through your stops.'
+        setSaid(line)
+        speak(line)
+      } catch {
+        setSaid('The route engine is unreachable, so the stop was not added.')
+      } finally {
+        setViaBusy(false)
+      }
     },
     [],
   )
@@ -261,6 +311,16 @@ export function NavigateScreen() {
               pathOptions={{ color: '#F7D154', weight: 2, fillColor: '#F7D154', fillOpacity: 0.8 }}
             >
               <Tooltip>{`${s.km_ahead} km ahead`}</Tooltip>
+            </CircleMarker>
+          ))}
+          {via.map((s, i) => (
+            <CircleMarker
+              key={`via-${s.lat},${s.lon}`}
+              center={[s.lat, s.lon]}
+              radius={8}
+              pathOptions={{ color: '#FFFFFF', weight: 2, fillColor: '#F7D154', fillOpacity: 1 }}
+            >
+              <Tooltip>{`Stop ${i + 1} on the way`}</Tooltip>
             </CircleMarker>
           ))}
           {position ? (
@@ -408,18 +468,60 @@ export function NavigateScreen() {
           <Sparkles size={15} strokeWidth={1.6} />
           Scenic stops on the way
         </button>
+        {via.length ? (
+          <ul className="mt-2 space-y-1.5" aria-label="Stops on the way">
+            {via.map((s, i) => (
+              <li
+                key={`via-${s.lat},${s.lon}`}
+                className="flex items-center justify-between gap-3 rounded-control border border-white/12 bg-panel px-3 py-2"
+              >
+                <span className="font-mono text-[12px] text-bone">
+                  Stop {i + 1} · {s.lat.toFixed(3)}, {s.lon.toFixed(3)}
+                </span>
+                <button
+                  type="button"
+                  disabled={viaBusy}
+                  aria-label={`Remove stop ${i + 1}`}
+                  onClick={() => void replanVia(via.filter((_, j) => j !== i))}
+                  className="shrink-0 rounded-control border border-white/20 p-1.5 disabled:opacity-40"
+                >
+                  <X size={13} strokeWidth={1.8} />
+                </button>
+              </li>
+            ))}
+            <li className="caption">
+              {viaBusy
+                ? 'Re-planning through your stops…'
+                : 'Each change re-plans from where you are, through these, to the same destination.'}
+            </li>
+          </ul>
+        ) : null}
         {stops ? (
           stops.length ? (
             <ul className="mt-2 space-y-1.5">
-              {stops.map((s) => (
-                <li key={`${s.lat},${s.lon}`} className="flex items-baseline justify-between rounded-control bg-panel px-3 py-2">
-                  <span className="font-mono text-[12px] text-bone">{s.km_ahead} km ahead</span>
-                  <span className="caption">
-                    {s.off_route_m} m off the line
-                    {s.gem_score != null ? ` · gem ${s.gem_score.toFixed(2)}` : ''}
-                  </span>
-                </li>
-              ))}
+              {stops.map((s) => {
+                const added = via.some((v) => v.lat === s.lat && v.lon === s.lon)
+                return (
+                  <li key={`${s.lat},${s.lon}`} className="flex items-center justify-between gap-3 rounded-control bg-panel px-3 py-2">
+                    <div className="min-w-0">
+                      <span className="font-mono text-[12px] text-bone">{s.km_ahead} km ahead</span>
+                      <span className="caption ml-2">
+                        {s.off_route_m} m off the line
+                        {s.gem_score != null ? ` · gem ${s.gem_score.toFixed(2)}` : ''}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={viaBusy || added}
+                      aria-label={added ? 'Already a stop on the way' : 'Add this stop to the route'}
+                      onClick={() => void replanVia([...via, s])}
+                      className="shrink-0 rounded-control border border-white/20 p-1.5 disabled:opacity-40"
+                    >
+                      <Plus size={13} strokeWidth={1.8} />
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           ) : (
             <p className="caption mt-2">

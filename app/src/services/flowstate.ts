@@ -48,6 +48,19 @@ export const flowstate = {
   route: (a: [number, number], b: [number, number], riderKey: string, zStar: number, mode: string) =>
     http.post<FsRouteResult>('/api/route', { a, b, rider_key: riderKey, z_star: zStar, mode }),
 
+  /**
+   * A -> stops -> B, in the order the rider put them in. One engine plan per
+   * leg, stitched by the backend; the summary adds the legs up rather than
+   * pretending the whole line was scored at once.
+   */
+  routeVia: (points: [number, number][], riderKey: string, zStar: number, mode: string) =>
+    http.post<FsRouteResult>('/api/route/via', {
+      points,
+      rider_key: riderKey,
+      z_star: zStar,
+      mode,
+    }, 45000),
+
   loop: (start: [number, number], hours: number, riderKey: string, zStar: number, mode: string) =>
     http.post<FsRouteResult>('/api/loop', { start, hours, rider_key: riderKey, z_star: zStar, mode }),
 
