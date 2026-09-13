@@ -54,15 +54,20 @@ export const realtimeSupported = (): boolean =>
   typeof navigator !== 'undefined' &&
   !!navigator.mediaDevices?.getUserMedia
 
+/**
+ * `context` is read again for every tool call, not captured once: a session
+ * can outlast a hundred kilometres, and a mid-ride re-plan has to start from
+ * where the bike is now rather than where it was when the mic was opened.
+ */
 export async function startRealtime(
-  context: Record<string, unknown>,
+  context: () => Record<string, unknown>,
   cb: RealtimeCallbacks,
 ): Promise<RealtimeHandle | null> {
   cb.onState('connecting')
 
   let grant: SessionGrant
   try {
-    grant = await http.post<SessionGrant>('/api/assistant/realtime', { context }, 20000)
+    grant = await http.post<SessionGrant>('/api/assistant/realtime', { context: context() }, 20000)
   } catch {
     cb.onState('error', 'The server could not start a live voice session.')
     return null
@@ -103,7 +108,7 @@ export async function startRealtime(
   const channel = pc.createDataChannel('oai-events')
   channel.onopen = () => cb.onState('live')
   channel.onmessage = (event) => {
-    void handleEvent(event.data, channel, cb)
+    void handleEvent(event.data, channel, cb, context)
   }
   pc.onconnectionstatechange = () => {
     if (pc.connectionState === 'failed') cb.onState('error', 'The live voice link dropped.')
@@ -135,6 +140,7 @@ async function handleEvent(
   raw: unknown,
   channel: RTCDataChannel,
   cb: RealtimeCallbacks,
+  context: () => Record<string, unknown>,
 ): Promise<void> {
   if (typeof raw !== 'string') return
   let event: Record<string, unknown>
@@ -157,7 +163,7 @@ async function handleEvent(
     return
   }
   if (type === 'response.function_call_arguments.done') {
-    await runTool(event, channel, cb)
+    await runTool(event, channel, cb, context)
   }
 }
 
@@ -165,6 +171,7 @@ async function runTool(
   event: Record<string, unknown>,
   channel: RTCDataChannel,
   cb: RealtimeCallbacks,
+  context: () => Record<string, unknown>,
 ): Promise<void> {
   const callId = String(event.call_id ?? '')
   const name = String(event.name ?? '')
@@ -179,7 +186,11 @@ async function runTool(
 
   let run: ToolRun
   try {
-    run = await http.post<ToolRun>('/api/assistant/tool', { name, args }, 45000)
+    run = await http.post<ToolRun>(
+      '/api/assistant/tool',
+      { name, args, context: context() },
+      45000,
+    )
   } catch {
     const error = { error: 'the app could not reach its backend' }
     run = { ok: false, result: error, for_model: error, actions: [] }

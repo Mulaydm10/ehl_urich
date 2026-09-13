@@ -29,7 +29,7 @@ function TabBar() {
     <div className="grid grid-cols-5">
       {TABS.map(({ to, label, Icon }) => {
         const active = to === '/' ? (pathname === '/' || pathname.startsWith('/ride/'))
-          : to === '/plan' ? (pathname.startsWith('/plan') || pathname.startsWith('/thrill'))
+          : to === '/plan' ? ['/plan', '/thrill', '/navigate'].some((path) => pathname.startsWith(path))
           : to === '/more'
           ? ['/more', '/maps', '/group', '/handoff'].some((path) => pathname.startsWith(path))
           : pathname.startsWith(to)

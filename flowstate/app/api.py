@@ -187,6 +187,9 @@ class RealtimeSessionReq(BaseModel):
 class ToolReq(BaseModel):
     name: str
     args: dict | None = None
+    # The live ride (position, plan being followed) when the phone has one, so
+    # mid-ride tools re-plan from where the bike actually is.
+    context: dict | None = None
 
 
 class CopilotTickReq(BaseModel):
@@ -287,7 +290,7 @@ def copilot_reset(req: CopilotDismissReq) -> JSONResponse:
 def assistant_tool(req: ToolReq) -> JSONResponse:
     """Run one assistant tool. The realtime model's function calls arrive on
     the phone, so they are executed here against the same engine and cloud."""
-    res = ASSISTANT.run_tool(req.name, req.args or {})
+    res = ASSISTANT.run_tool(req.name, req.args or {}, req.context)
     return JSONResponse(_clean(res), status_code=200)
 
 

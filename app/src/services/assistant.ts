@@ -37,6 +37,7 @@ const ROUTE_BY_SCREEN: Record<string, string> = {
   ride: '/',
   plan: '/plan',
   thrill: '/thrill',
+  navigate: '/navigate',
   discover: '/discover',
   garage: '/garage',
   group: '/group',

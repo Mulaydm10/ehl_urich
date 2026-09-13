@@ -87,6 +87,100 @@ export function subscribeActiveRoute(fn: (r: FsRouteResult | null) => void): () 
   return () => listeners.delete(fn)
 }
 
+/**
+ * The last GPS fix, published by whichever screen is watching.
+ *
+ * Mid-ride tools need to know where the bike is, and the rider may be talking
+ * to the assistant from any screen. Keeping the fix here — next to the active
+ * route — means the assistant never has to open a second GPS watch, and never
+ * has to ask the model where the rider is.
+ */
+export interface LiveFix {
+  lat: number
+  lon: number
+  speedKmh: number | null
+  headingDeg: number | null
+  at: number
+}
+
+let fix: LiveFix | null = null
+
+export const setLiveFix = (next: LiveFix | null): void => {
+  fix = next
+}
+
+export const getLiveFix = (): LiveFix | null => fix
+
+/** How many cells of the current plan are worth sending as "the road ahead". */
+const CELLS_SENT = 400
+/** Points of the plan's line to send; enough shape to measure along, small
+ *  enough to post every time the rider speaks. */
+const LINE_POINTS = 120
+
+/** Thin a path to at most `LINE_POINTS`, always keeping both ends. */
+function thin(path: [number, number][]): [number, number][] {
+  if (path.length <= LINE_POINTS) return path.map((p) => [p[1], p[0]])
+  const step = (path.length - 1) / (LINE_POINTS - 1)
+  const out: [number, number][] = []
+  for (let i = 0; i < LINE_POINTS; i += 1) {
+    const p = path[Math.round(i * step)]
+    out.push([p[1], p[0]])
+  }
+  return out
+}
+
+export interface RideContext {
+  lat: number
+  lon: number
+  speed_kmh: number | null
+  heading_deg: number | null
+  rider_key: string
+  thrill: number
+  mode: string
+  navigating: boolean
+  route: {
+    destination: [number, number] | null
+    cells: string[]
+    /** The planned line as [lat, lon], thinned. */
+    line: [number, number][]
+    km: number | null
+    minutes: number | null
+  } | null
+}
+
+/**
+ * Everything a mid-ride tool needs: where the bike is, and the plan it is on.
+ * Null with no fix — the backend then says it cannot re-plan from here, which
+ * is the truth, rather than re-planning from somewhere invented.
+ */
+export function rideContext(
+  opts: { riderKey?: string; thrill?: number; mode?: string } = {},
+): RideContext | null {
+  if (!fix) return null
+  const r = getActiveRoute()
+  const summary = r && !Array.isArray(r.summary) ? r.summary : null
+  const last = r?.path[r.path.length - 1]
+  return {
+    lat: fix.lat,
+    lon: fix.lon,
+    speed_kmh: fix.speedKmh,
+    heading_deg: fix.headingDeg,
+    rider_key: opts.riderKey ?? 'userA',
+    thrill: opts.thrill ?? r?.z_star ?? 0.5,
+    mode: opts.mode ?? 'flow',
+    navigating: !!r,
+    route: r && last
+      ? {
+          destination: [last[1], last[0]],
+          cells: r.cells.slice(0, CELLS_SENT),
+          line: thin(r.path),
+          km: summary?.km ?? null,
+          minutes: summary?.minutes ?? null,
+        }
+      : null,
+  }
+}
+
 /** Trim a planned route to what the triggers need, so ticks stay small. */
 export function toCopilotRoute(r: FsRouteResult | null): CopilotRoute | null {
   if (!r || !r.ok || r.path.length < 2) return null

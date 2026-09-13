@@ -17,11 +17,12 @@ import {
   copilot,
   getActiveRoute,
   setActiveRoute,
+  setLiveFix,
   subscribeActiveRoute,
   toCopilotRoute,
   type CopilotSuggestion,
 } from '../services/copilot'
-import { useLivePosition, type LiveState } from './useLivePosition'
+import { useLivePosition, type LivePosition, type LiveState } from './useLivePosition'
 
 const TICK_MS = 20000
 const MOVED_M = 40          // below this the fix is GPS noise, not progress
@@ -40,6 +41,8 @@ export interface CopilotView {
   /** The backend's own reason for staying quiet — shown verbatim. */
   why: string | null
   route: FsRouteResult | null
+  /** The fix the loop is running on, for screens that draw it. */
+  position: LivePosition | null
   ticks: number
   accept: () => Promise<FsRouteResult | null>
   dismiss: () => void
@@ -81,6 +84,24 @@ export function useCopilot(
   })
 
   useEffect(() => subscribeActiveRoute(setRoute), [])
+
+  // Publish the fix so the assistant's mid-ride tools can re-plan from where
+  // the bike actually is, whichever screen the rider is talking from.
+  useEffect(() => {
+    if (!enabled) {
+      setLiveFix(null)
+      return
+    }
+    if (position) {
+      setLiveFix({
+        lat: position.lat,
+        lon: position.lng,
+        speedKmh: position.speedKmh,
+        headingDeg: position.headingDeg,
+        at: position.at,
+      })
+    }
+  }, [enabled, position])
 
   useEffect(() => {
     if (!enabled) {
@@ -170,5 +191,5 @@ export function useCopilot(
       ? 'unreachable'
       : gpsState(liveState)
 
-  return { state, suggestion, why, route, ticks, accept, dismiss, busy }
+  return { state, suggestion, why, route, position, ticks, accept, dismiss, busy }
 }

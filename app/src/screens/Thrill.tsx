@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, Gauge, RefreshCw } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { AlertTriangle, Gauge, Navigation, RefreshCw } from 'lucide-react'
 import { FlowMap } from '../components/FlowMap'
 import { Chip, Feedback, GhostButton, PageHeader, PlannerSwitch, PrimaryButton, SectionTitle } from '../components/primitives'
 import { takePendingPlan } from '../services/assistant'
 import { setActiveRoute } from '../services/copilot'
+import { fitFor } from '../domain/bikeFit'
+import { useAppState } from '../state/AppState'
 import { flowstate } from '../services/flowstate'
 import type {
   FsCompareResult,
@@ -91,6 +94,7 @@ function RiderCard({ rider }: { rider: FsRider }) {
 }
 
 export function ThrillScreen() {
+  const { bike } = useAppState()
   const [riders, setRiders] = useState<FsRider[]>([])
   const [presets, setPresets] = useState<FsPresets | null>(null)
   const [modes, setModes] = useState<FsMode[]>([])
@@ -113,6 +117,9 @@ export function ThrillScreen() {
   const [loopStart, setLoopStart] = useState<FsPresetLoop | null>(null)
   const [hours, setHours] = useState(2)
   const [dial, setDial] = useState<ThrillPreset>('Flow')
+
+  const fit = fitFor(bike)
+  const fitApplied = !!fit && dial === fit.dial && mode === fit.mode
 
   const [busy, setBusy] = useState(false)
   const [comparison, setComparison] = useState<FsCompareResult | null>(null)
@@ -236,6 +243,39 @@ export function ThrillScreen() {
       </PageHeader>
 
       <PlannerSwitch current="thrill" />
+
+      {result?.ok ? (
+        <Link
+          to="/navigate"
+          className="mx-6 mt-4 flex items-center justify-center gap-2 rounded-control bg-accent px-4 py-3 text-[13px] font-medium text-[var(--accent-contrast)]"
+        >
+          <Navigation size={16} strokeWidth={1.8} />
+          Ride it hands-free
+        </Link>
+      ) : null}
+
+      {fit && bike ? (
+        <div className="panel mx-6 mt-4 p-4">
+          <div className="label">Fit to your bike · preset, not measured</div>
+          <p className="mt-2 text-[14px] font-medium text-bone">
+            {bike.model}: {fit.headline}
+          </p>
+          <p className="caption mt-1">{fit.why}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setDial(fit.dial)
+              if (modes.some((m) => m.key === fit.mode)) setMode(fit.mode)
+            }}
+            className="mt-3 rounded-control border border-white/20 px-3 py-1.5 text-[11px] uppercase tracking-[0.1em]"
+          >
+            {fitApplied ? 'Applied' : `Use ${fit.dial} · ${fit.mode}`}
+          </button>
+          <p className="caption mt-2">
+            Your safety gate is unchanged — the bike cannot raise the lean you are allowed.
+          </p>
+        </div>
+      ) : null}
 
       {assistantPlan ? (
         <p className="caption mx-6 mt-4 rounded-panel border border-white/[0.08] bg-panel p-4">

@@ -5,6 +5,7 @@ import { EmptyState, PrimaryButton } from './components/primitives'
 import { RideScreen } from './screens/Ride'
 import { PlanScreen } from './screens/Plan'
 import { ThrillScreen } from './screens/Thrill'
+import { NavigateScreen } from './screens/Navigate'
 import { DiscoverScreen } from './screens/Discover'
 import { GarageScreen } from './screens/Garage'
 import { MoreScreen } from './screens/More'
@@ -36,6 +37,7 @@ function Content() {
           <Route path="/" element={<RideScreen />} />
           <Route path="/plan" element={<PlanScreen />} />
           <Route path="/thrill" element={<ThrillScreen />} />
+          <Route path="/navigate" element={<NavigateScreen />} />
           <Route path="/discover" element={<DiscoverScreen />} />
           <Route path="/garage" element={<GarageScreen />} />
           <Route path="/more" element={<MoreScreen />} />

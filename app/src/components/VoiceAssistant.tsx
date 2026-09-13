@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Mic, MicOff, Sparkles, X } from 'lucide-react'
 import { useAppState } from '../state/AppState'
 import { useSpeech } from './useSpeech'
@@ -12,6 +12,8 @@ import {
   routeForScreen,
   setPendingPlan,
 } from '../services/assistant'
+import { rideContext, setActiveRoute } from '../services/copilot'
+import { describeReroute, matchComplaint, reroute } from '../services/navigate'
 import {
   type RealtimeHandle,
   type RealtimeState,
@@ -32,6 +34,8 @@ import {
  */
 export function VoiceAssistant() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const navigating = pathname === '/navigate'
   const { bike, bikes, routes, rides, stats, online, engine, selectBike } = useAppState()
   const { state, transcript, start, stop, speak, supported } = useSpeech()
   const [open, setOpen] = useState(false)
@@ -63,6 +67,9 @@ export function VoiceAssistant() {
       for (const action of actions) {
         if (action.type === 'select_bike') selectBike(action.bikeId)
         if (action.type === 'show_route') {
+          // Whatever was just planned is now the plan being ridden, so the
+          // co-pilot measures against it and Navigate draws it.
+          setActiveRoute(action.plan)
           setPendingPlan(action.plan)
           planned = true
         }
@@ -70,14 +77,56 @@ export function VoiceAssistant() {
       }
       // A fresh plan wins over whichever screen the model asked for: Thrill is
       // the only screen that can draw it, and being told about a route that is
-      // nowhere on screen is worse than ignoring the model's choice.
-      if (planned) go = '/thrill'
+      // nowhere on screen is worse than ignoring the model's choice. Mid-ride
+      // is the exception: a rider following a route must not be thrown onto a
+      // planning screen because they asked for a different road.
+      if (planned) go = navigating ? null : '/thrill'
+      if (navigating) {
+        setOpen(false)
+        return
+      }
       if (go) {
         setOpen(false)
         navigate(go)
       }
     },
-    [navigate, selectBike],
+    [navigate, navigating, selectBike],
+  )
+
+  /**
+   * A complaint about the road, answered without the model.
+   *
+   * `reroute_from_here` is the engine, not OpenAI, so this keeps working with
+   * no key and with the cloud assistant down — which is exactly when a rider
+   * mid-ride still wants off a road. Returns false when the sentence was not
+   * about the road, so the normal fallback runs.
+   */
+  const runComplaint = useCallback(
+    async (text: string): Promise<boolean> => {
+      const change = matchComplaint(text)
+      const ctx = rideContext()
+      if (!change || !ctx) return false
+      setThinking(true)
+      const res = await reroute(change, text, ctx)
+      setThinking(false)
+      setUsedCloud(false)
+      if ('error' in res) {
+        setReply(res.error)
+        speak(res.error)
+        return true
+      }
+      setActiveRoute(res.plan)
+      const said = describeReroute(res)
+      setReply(said)
+      speak(said)
+      if (!navigating) {
+        setPendingPlan(res.plan)
+        setOpen(false)
+        navigate('/navigate')
+      }
+      return true
+    },
+    [navigate, navigating, speak],
   )
 
   const runLocal = useCallback(
@@ -99,6 +148,7 @@ export function VoiceAssistant() {
       setHeard(text)
       setReply(null)
       if (!cloud?.enabled) {
+        if (await runComplaint(text)) return
         runLocal(text)
         return
       }
@@ -108,11 +158,13 @@ export function VoiceAssistant() {
         bikes: bikes.map((b) => ({ id: b.id, model: b.model })),
         online,
         engine,
+        ride: rideContext(),
       })
       setThinking(false)
       if (!answer) {
         setCloudFailed(true)
         setUsedCloud(false)
+        if (await runComplaint(text)) return
         runLocal(text)
         return
       }
@@ -122,7 +174,7 @@ export function VoiceAssistant() {
       speak(answer.say)
       applyActions(answer.actions)
     },
-    [cloud, bike, bikes, online, engine, speak, runLocal, applyActions],
+    [cloud, bike, bikes, online, engine, speak, runLocal, runComplaint, applyActions],
   )
 
   const canGoLive = !!cloud?.realtime?.enabled && realtimeSupported()
@@ -143,12 +195,13 @@ export function VoiceAssistant() {
     setLiveDetail(null)
     setLive('connecting')
     const handle = await startRealtime(
-      {
+      () => ({
         bikeId: bike?.id ?? null,
         bikes: bikes.map((b) => ({ id: b.id, model: b.model })),
         online,
         engine,
-      },
+        ride: rideContext(),
+      }),
       {
         onState: (next, detail) => {
           setLive(next === 'closed' ? null : next)

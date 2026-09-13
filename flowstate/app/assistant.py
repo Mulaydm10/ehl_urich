@@ -22,6 +22,7 @@ dependency set (fastapi + pydantic).
 from __future__ import annotations
 
 import json
+import math
 import os
 import time
 import urllib.error
@@ -87,6 +88,20 @@ plan around them.
 When the rider asks to see or plan something, call the function and also call
 open_screen so the app shows the result. Routes from plan_route and plan_loop
 are drawn on the "thrill" screen, so that is the screen to open after planning.
+
+While the rider is moving the app sends its live position and the plan being
+followed as app context. When the complaint is about the road they are on
+right now - "this is boring", "too much for me", "get me off this road",
+"something nicer" - call reroute_from_here, never plan_route: only
+reroute_from_here knows where they are and what they were following. It re-
+plans from the current position to the same destination and reports how much
+of the old line the new one still uses; say that number rather than promising
+a road you have not been told about.
+
+For "anywhere nice on the way?" mid-ride, call stops_ahead: it returns the
+crowd's best corners that lie near the road still to be ridden, with how far
+ahead each one is. Only those are on the way; suggest_stops is for planning
+before setting off.
 """
 
 # Places inside the FLOWSTATE coverage box, so spoken place names resolve
@@ -118,6 +133,26 @@ PLACES: dict[str, tuple[float, float]] = {
 }
 
 COVERAGE = {"lat": (47.38, 48.03), "lon": (10.72, 11.96)}
+
+# How a mid-ride complaint moves the dial. Big enough that the rider feels the
+# difference on the next corner; a 0.1 nudge is not worth interrupting a ride
+# for.
+REROUTE_STEP = 0.35
+REROUTE_LOOP_HOURS = 1.5
+
+# A stop further than this from the planned line is a detour, not a stop on
+# the way, and saying otherwise mid-ride would be a lie the rider rides into.
+CORRIDOR_M = 2500
+
+
+def _metres(a: tuple[float, float], b: tuple[float, float]) -> float:
+    """Great-circle metres between two (lat, lon) points."""
+    p1, p2 = math.radians(a[0]), math.radians(b[0])
+    dp = p2 - p1
+    dl = math.radians(b[1] - a[1])
+    h = (math.sin(dp / 2) ** 2
+         + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2)
+    return 2 * 6371008.8 * math.asin(math.sqrt(min(1.0, max(0.0, h))))
 
 
 def _known_places() -> str:
@@ -166,8 +201,8 @@ def _point(value: Any) -> tuple[float, float] | dict[str, str]:
 # tool schemas exposed to the model
 # --------------------------------------------------------------------------
 
-SCREENS = ["ride", "plan", "thrill", "discover", "garage", "group", "maps",
-           "handoff", "more"]
+SCREENS = ["ride", "plan", "thrill", "navigate", "discover", "garage", "group",
+           "maps", "handoff", "more"]
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -203,6 +238,74 @@ TOOLS: list[dict[str, Any]] = [
                     "rider_key": {"type": "string"},
                 },
                 "required": ["start", "hours"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "reroute_from_here",
+            "description": (
+                "Re-plan from where the rider is right now, mid-ride. Use this "
+                "for any complaint about the road they are on ('this is "
+                "boring', 'too much', 'get me off this road') or any request "
+                "for an alternative now. The app supplies the live position "
+                "and the plan being followed; you only choose how it should "
+                "change."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "change": {
+                        "type": "string",
+                        "enum": ["more_fun", "calmer", "scenic", "mountain",
+                                 "avoid_this_road", "same"],
+                        "description": (
+                            "more_fun raises the thrill dial, calmer lowers it, "
+                            "scenic and mountain switch mode, avoid_this_road "
+                            "searches the variants for the line that shares "
+                            "least road with the current one, same re-plans "
+                            "unchanged from here."
+                        ),
+                    },
+                    "destination": {
+                        "type": "string",
+                        "description": (
+                            "Only when the rider names a new one. Otherwise the "
+                            "destination of the plan they are following is kept."
+                        ),
+                    },
+                    "hours": {
+                        "type": "number",
+                        "description": "Loop length when there is no destination to keep.",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "The rider's own words, kept with the result.",
+                    },
+                },
+                "required": ["change"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "stops_ahead",
+            "description": (
+                "Scenic stops on the road still ahead of the rider, with the "
+                "distance to each along the plan. Mid-ride only; the app "
+                "supplies the position and the plan."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "within_km": {
+                        "type": "number",
+                        "description": "How far ahead to look. Default 40.",
+                    },
+                    "count": {"type": "integer"},
+                },
             },
         },
     },
@@ -382,7 +485,7 @@ def _actions_for(name: str, result: Any) -> list[dict[str, Any]]:
     the realtime session so voice and text drive the UI identically."""
     if not isinstance(result, dict) or not result.get("ok"):
         return []
-    if name in ("plan_route", "plan_loop"):
+    if name in ("plan_route", "plan_loop", "reroute_from_here"):
         # The model only gets a truncated summary; the app gets the whole plan
         # so it can draw the route it was just told about.
         return [{"type": "show_route", "plan": result}]
@@ -391,6 +494,26 @@ def _actions_for(name: str, result: Any) -> list[dict[str, Any]]:
     if name == "select_bike":
         return [{"type": "select_bike", "bikeId": result["bike"]["id"]}]
     return []
+
+
+def _reroute_variants(change: str, thrill: float, mode: str) -> list[tuple[float, str]]:
+    """(thrill, mode) settings to plan, best guess first.
+
+    `avoid_this_road` gets the whole list because it is a search: the engine
+    cannot be told to forbid a road, so the only way off one is to ask for a
+    different enough ride that the router picks another line.
+    """
+    up = min(0.90, round(thrill + REROUTE_STEP, 2))
+    down = max(0.15, round(thrill - REROUTE_STEP, 2))
+    if change == "more_fun":
+        return [(up, mode)]
+    if change == "calmer":
+        return [(down, mode)]
+    if change in ("scenic", "mountain"):
+        return [(thrill, change)]
+    if change == "avoid_this_road":
+        return [(up, mode), (thrill, "scenic"), (thrill, "mountain"), (down, mode)]
+    return [(thrill, mode)]
 
 
 def _route_for_model(result: dict[str, Any]) -> dict[str, Any]:
@@ -427,8 +550,11 @@ def _for_model(name: str, result: Any) -> Any:
     """Shrink a tool result to what can be said out loud."""
     if not isinstance(result, dict):
         return result
-    if name in ("plan_route", "plan_loop") and "path" in result:
-        return _route_for_model(result)
+    if name in ("plan_route", "plan_loop", "reroute_from_here") and "path" in result:
+        slim = _route_for_model(result)
+        if "reroute" in result:
+            slim["reroute"] = result["reroute"]
+        return slim
     if name == "compare_routes":
         return {
             key: _route_for_model(value) if isinstance(value, dict) and "path" in value else value
@@ -508,6 +634,158 @@ class Assistant:
         return self.engine.loop(list(s), float(a.get("hours", 2.0)),
                                 a.get("rider_key", "userA"), float(a.get("thrill", 0.5)),
                                 mode=a.get("mode", "flow"))
+
+    def t_reroute_from_here(self, a: dict[str, Any]) -> Any:
+        """Re-plan from the rider's live position, mid-ride.
+
+        The rider complains about the road they are on; the model picks a
+        direction of travel for the change and this does the rest. Where they
+        are and what they were following come from the app's ride context, not
+        from the model — a model that guesses a position while the bike is
+        moving is worse than no answer.
+
+        `avoid_this_road` is the interesting one. The engine has no
+        "forbid these roads" mode, so instead of pretending otherwise we plan
+        every variant we do have and keep the one that reuses least of the
+        line ahead, then report that share. "About a third of it is the same
+        road" is a true answer; silently returning the same road is not.
+        """
+        ride = a.get("_ride") or {}
+        try:
+            here = [float(ride["lat"]), float(ride["lon"])]
+        except (KeyError, TypeError, ValueError):
+            return {"error": "I don't have a live position, so I cannot re-plan "
+                             "from here. Start the co-pilot on the Navigate "
+                             "screen and let it get a GPS fix.",
+                    "needs": "live position"}
+        if not (COVERAGE["lat"][0] <= here[0] <= COVERAGE["lat"][1]
+                and COVERAGE["lon"][0] <= here[1] <= COVERAGE["lon"][1]):
+            return {"error": "You are outside the Bavarian area FLOWSTATE "
+                             "covers, so there is nothing scored here to "
+                             "re-plan onto.",
+                    "position": here}
+
+        rider_key = str(ride.get("rider_key") or a.get("rider_key") or "userA")
+        thrill = float(ride.get("thrill") or 0.5)
+        mode = str(ride.get("mode") or "flow")
+        route = ride.get("route") or {}
+        ahead = {str(c) for c in (route.get("cells") or [])}
+
+        dest: list[float] | None = None
+        if a.get("destination"):
+            hit = _point(a["destination"])
+            if isinstance(hit, dict):
+                return hit
+            dest = [hit[0], hit[1]]
+        elif route.get("destination"):
+            d = route["destination"]
+            dest = [float(d[0]), float(d[1])]
+
+        change = str(a.get("change") or "same")
+        variants = _reroute_variants(change, thrill, mode)
+
+        tried: list[dict[str, Any]] = []
+        best: tuple[float, dict[str, Any], dict[str, float | str]] | None = None
+        for z, m in variants:
+            plan = (self.engine.route(here, dest, rider_key, z, mode=m) if dest
+                    else self.engine.loop(here, float(a.get("hours") or REROUTE_LOOP_HOURS),
+                                          rider_key, z, mode=m))
+            if not plan.get("ok"):
+                tried.append({"thrill": z, "mode": m, "ok": False,
+                              "note": plan.get("note")})
+                continue
+            cells = {str(c) for c in (plan.get("cells") or [])}
+            shared = (len(cells & ahead) / len(cells)) if cells and ahead else None
+            tried.append({"thrill": z, "mode": m, "ok": True,
+                          "km": (plan.get("summary") or {}).get("km"),
+                          "shares_current_road": shared})
+            # Lowest overlap wins when the rider wants off this road; otherwise
+            # the first variant is the one they asked for.
+            rank = shared if (change == "avoid_this_road" and shared is not None) else 0.0
+            if best is None or rank < best[0]:
+                best = (rank, plan, {"thrill": z, "mode": m,
+                                     "shares_current_road": shared})
+            if change != "avoid_this_road":
+                break
+
+        if best is None:
+            return {"error": "The engine could not plan anything from here.",
+                    "tried": tried}
+
+        _, plan, won = best
+        return {**plan, "reroute": {
+            "change": change,
+            "reason": a.get("reason"),
+            "from": here,
+            "destination": dest,
+            "kept_destination": bool(dest) and not a.get("destination"),
+            "thrill_from": thrill, "thrill_to": won["thrill"],
+            "mode_from": mode, "mode_to": won["mode"],
+            "shares_current_road": won["shares_current_road"],
+            "variants_tried": tried,
+            "note": ("Share of the new line that is road you were already "
+                     "going to ride; null when no current plan was loaded."),
+        }}
+
+    def t_stops_ahead(self, a: dict[str, Any]) -> Any:
+        """Crowd gems that are actually on the road still to be ridden.
+
+        `suggest_stops` answers "where is nice around here", which mid-ride
+        sends the rider backwards as often as forwards. This walks the plan's
+        own line from the rider's position onward and keeps only gems close to
+        it, so "on the way" means on the way. Distance is measured along the
+        line, not straight-line, because that is the number the rider will
+        watch count down.
+        """
+        ride = a.get("_ride") or {}
+        try:
+            here = (float(ride["lat"]), float(ride["lon"]))
+        except (KeyError, TypeError, ValueError):
+            return {"error": "I don't have a live position, so I cannot tell "
+                             "what is ahead.", "needs": "live position"}
+
+        line = [(float(p[0]), float(p[1]))
+                for p in ((ride.get("route") or {}).get("line") or [])
+                if isinstance(p, (list, tuple)) and len(p) == 2]
+        if len(line) < 2:
+            return {"error": "No route is being followed, so nothing is "
+                             "'ahead'. Plan one first, or ask for stops near "
+                             "a place.", "needs": "active route"}
+
+        within_m = float(a.get("within_km") or 40.0) * 1000.0
+        start = min(range(len(line)), key=lambda i: _metres(here, line[i]))
+
+        # Distance along the remaining line, point by point.
+        along = [0.0] * len(line)
+        for i in range(start + 1, len(line)):
+            along[i] = along[i - 1] + _metres(line[i - 1], line[i])
+
+        gems = self.engine.gem_pool(str(ride.get("rider_key") or "userA"),
+                                    float(ride.get("thrill") or 0.5), 40,
+                                    "scenic")
+        out: list[dict[str, Any]] = []
+        for gem in gems:
+            if not gem.get("routable", True) or gem.get("gated"):
+                continue
+            at = (float(gem["lat"]), float(gem["lon"]))
+            near_i, off = min(
+                ((i, _metres(at, line[i])) for i in range(start, len(line))),
+                key=lambda pair: pair[1])
+            if off > CORRIDOR_M or along[near_i] > within_m:
+                continue
+            out.append({"lat": at[0], "lon": at[1],
+                        "gem_score": gem.get("gem_score"),
+                        "flow": gem.get("flow"),
+                        "demand_p90": gem.get("demand_p90"),
+                        "km_ahead": round(along[near_i] / 1000.0, 1),
+                        "off_route_m": round(off)})
+        out.sort(key=lambda g: g["km_ahead"])
+        return {"stops": out[: int(a.get("count") or 5)],
+                "within_km": within_m / 1000.0,
+                "corridor_m": CORRIDOR_M,
+                "note": ("Crowd-rated corners within %d m of the line still "
+                         "ahead; distance is measured along the route."
+                         % CORRIDOR_M)}
 
     def t_compare_routes(self, a: dict[str, Any]) -> Any:
         s, e = _point(a.get("start")), _point(a.get("end"))
@@ -593,13 +871,23 @@ class Assistant:
             return {"error": "No such bike."}
         return {"ok": True, "bike": bike}
 
-    def run_tool(self, name: str, args: dict[str, Any]) -> dict[str, Any]:
+    def run_tool(self, name: str, args: dict[str, Any],
+                 context: dict[str, Any] | None = None) -> dict[str, Any]:
         """Execute one tool by name. Used by both the chat loop and the
-        realtime session, whose tool calls arrive from the phone."""
+        realtime session, whose tool calls arrive from the phone.
+
+        The live ride — where the bike is and which plan it is following —
+        travels as `_ride` from the app context rather than as tool arguments.
+        It is the app's knowledge, and a model asked to repeat a moving
+        position back to us would eventually get it wrong.
+        """
         handler = self.handlers().get(name)
         if handler is None:
             err = {"error": f"unknown tool {name}"}
             return {"ok": False, "result": err, "for_model": err, "actions": []}
+        ride = (context or {}).get("ride")
+        if ride:
+            args = {**args, "_ride": ride}
         try:
             result = handler(args)
         except Exception as exc:  # noqa: BLE001 - report, don't crash the turn
@@ -615,6 +903,8 @@ class Assistant:
         return {
             "plan_route": self.t_plan_route,
             "plan_loop": self.t_plan_loop,
+            "reroute_from_here": self.t_reroute_from_here,
+            "stops_ahead": self.t_stops_ahead,
             "compare_routes": self.t_compare_routes,
             "suggest_stops": self.t_suggest_stops,
             "garage": self.t_garage,
@@ -736,6 +1026,9 @@ class Assistant:
         messages.append({"role": "user", "content": text})
 
         handlers = self.handlers()
+        # The live ride never goes to the model as a tool argument; tools read
+        # it straight from the app context.
+        ride = (context or {}).get("ride")
         actions: list[dict[str, Any]] = []
         used: list[str] = []
 
@@ -769,6 +1062,8 @@ class Assistant:
                     args = json.loads(call["function"]["arguments"] or "{}")
                 except json.JSONDecodeError:
                     args = {}
+                if ride:
+                    args = {**args, "_ride": ride}
                 handler = handlers.get(name)
                 if handler is None:
                     result: Any = {"error": f"unknown tool {name}"}
