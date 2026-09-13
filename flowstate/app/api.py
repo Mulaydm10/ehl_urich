@@ -313,19 +313,34 @@ def modes() -> JSONResponse:
     return ok(ENGINE.modes())
 
 
+def _engine(call) -> JSONResponse:
+    """Run an engine call; a request the engine rejects is the caller's error.
+
+    modes.custom_columns raises ValueError on a spec it will not accept (a
+    column the mode scan did not pass, a weight out of range). That is a bad
+    request, not a server fault, so answer 400 with the reason instead of a
+    bare 500 the app can only show as "something went wrong".
+    """
+    try:
+        return ok(call())
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": "invalid_request", "note": str(exc)},
+                            status_code=400)
+
+
 @app.post("/api/route")
 def route(req: RouteReq) -> JSONResponse:
-    return ok(ENGINE.route(req.a, req.b, req.rider_key, req.z_star, mode=req.mode))
+    return _engine(lambda: ENGINE.route(req.a, req.b, req.rider_key, req.z_star, mode=req.mode))
 
 
 @app.post("/api/loop")
 def loop(req: LoopReq) -> JSONResponse:
-    return ok(ENGINE.loop(req.start, req.hours, req.rider_key, req.z_star, mode=req.mode))
+    return _engine(lambda: ENGINE.loop(req.start, req.hours, req.rider_key, req.z_star, mode=req.mode))
 
 
 @app.post("/api/compare")
 def compare(req: CompareReq) -> JSONResponse:
-    return ok(ENGINE.compare(req.a, req.b, req.rider_key, req.lo, req.hi, mode=req.mode))
+    return _engine(lambda: ENGINE.compare(req.a, req.b, req.rider_key, req.lo, req.hi, mode=req.mode))
 
 
 @app.post("/api/pareto")
