@@ -3,6 +3,7 @@ import { AlertTriangle, Gauge, RefreshCw } from 'lucide-react'
 import { FlowMap } from '../components/FlowMap'
 import { Chip, Feedback, GhostButton, PageHeader, PlannerSwitch, PrimaryButton, SectionTitle } from '../components/primitives'
 import { takePendingPlan } from '../services/assistant'
+import { setActiveRoute } from '../services/copilot'
 import { flowstate } from '../services/flowstate'
 import type {
   FsCompareResult,
@@ -116,6 +117,12 @@ export function ThrillScreen() {
   const [busy, setBusy] = useState(false)
   const [comparison, setComparison] = useState<FsCompareResult | null>(null)
   const [note, setNote] = useState<string | null>(null)
+
+  // Whatever is on screen here is the plan the rider is following, so it is
+  // also the plan the co-pilot measures the ride against.
+  useEffect(() => {
+    setActiveRoute(result)
+  }, [result])
 
   useEffect(() => {
     let cancelled = false

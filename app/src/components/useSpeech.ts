@@ -39,6 +39,16 @@ function getRecognitionCtor(): SpeechRecognitionCtor | null {
 
 export type ListenState = 'idle' | 'listening' | 'unsupported' | 'denied'
 
+/** Say a line through the device's own voice, without starting a recogniser. */
+export function speak(text: string): void {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return
+  window.speechSynthesis.cancel()
+  const u = new SpeechSynthesisUtterance(text)
+  u.lang = 'en-US'
+  u.rate = 1.02
+  window.speechSynthesis.speak(u)
+}
+
 export function useSpeech() {
   const [state, setState] = useState<ListenState>('idle')
   const [transcript, setTranscript] = useState('')
@@ -83,15 +93,6 @@ export function useSpeech() {
   const stop = useCallback(() => {
     recognition.current?.stop()
     setState('idle')
-  }, [])
-
-  const speak = useCallback((text: string) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return
-    window.speechSynthesis.cancel()
-    const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'en-US'
-    u.rate = 1.02
-    window.speechSynthesis.speak(u)
   }, [])
 
   return { state, transcript, start, stop, speak, supported: state !== 'unsupported' }

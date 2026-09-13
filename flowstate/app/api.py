@@ -38,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import assistant as assistant_mod  # noqa: E402
 import bike_link  # noqa: E402
 import bmw_cloud  # noqa: E402
+import copilot as copilot_mod  # noqa: E402
 
 # ---- pick the real engine if its data is here, else the mock ---------------
 ENGINE: Any
@@ -62,6 +63,7 @@ else:
 CLOUD = bmw_cloud.BmwCloud()
 LINK = bike_link.BikeLink(CLOUD)  # FLOWSTATE_BIKE_LINK=stand_in (default) | native
 ASSISTANT = assistant_mod.Assistant(ENGINE, CLOUD, ENGINE_KIND)
+COPILOT = copilot_mod.Copilot(ENGINE, CLOUD, ENGINE_KIND)
 
 app = FastAPI(title="FLOWSTATE + BMW backend", version="1.0")
 app.add_middleware(
@@ -187,6 +189,31 @@ class ToolReq(BaseModel):
     args: dict | None = None
 
 
+class CopilotTickReq(BaseModel):
+    """One live position report from a ride in progress.
+
+    `route` is the plan the rider is currently following, as the app already
+    holds it (path, segments, refusals, destination, remaining_km). It is sent
+    with every tick rather than stored server-side so the co-pilot has no
+    opinion about which plan is current — the app does.
+    """
+    session: str = "default"
+    lat: float
+    lon: float
+    speed_kmh: float | None = None
+    heading_deg: float | None = None
+    rider_key: str = "userA"
+    thrill: float = 0.5
+    mode: str = "flow"
+    bike_id: str | None = None
+    route: dict | None = None
+
+
+class CopilotDismissReq(BaseModel):
+    session: str = "default"
+    kind: str
+
+
 class StartRideReq(BaseModel):
     bikeId: str
     title: str = ""
@@ -232,6 +259,28 @@ def assistant_realtime(req: RealtimeSessionReq) -> JSONResponse:
     never leaves this server; the phone talks WebRTC to OpenAI with this."""
     res = ASSISTANT.realtime_session(req.context)
     return JSONResponse(_clean(res), status_code=200 if res.get("ok") else 503)
+
+
+@app.get("/api/copilot/status")
+def copilot_status() -> JSONResponse:
+    return ok(COPILOT.status())
+
+
+@app.post("/api/copilot/tick")
+def copilot_tick(req: CopilotTickReq) -> JSONResponse:
+    """Live ride watcher: deterministic triggers decide whether there is
+    anything to say, OpenAI only phrases it. At most one suggestion."""
+    return ok(COPILOT.tick(req.model_dump()))
+
+
+@app.post("/api/copilot/dismiss")
+def copilot_dismiss(req: CopilotDismissReq) -> JSONResponse:
+    return ok(COPILOT.dismiss(req.session, req.kind))
+
+
+@app.post("/api/copilot/reset")
+def copilot_reset(req: CopilotDismissReq) -> JSONResponse:
+    return ok(COPILOT.reset(req.session))
 
 
 @app.post("/api/assistant/tool")
