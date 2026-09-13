@@ -280,7 +280,8 @@ def assistant_status() -> JSONResponse:
 @app.post("/api/assistant")
 def assistant_ask(req: AssistantReq) -> JSONResponse:
     res = ASSISTANT.ask(req.text, req.context)
-    FEED.said(req.text, str(res.get("say") or ""), list(res.get("tools_used") or []), bool(res.get("ok")))
+    FEED.said(live_feed_mod.rider_of((req.context or {}).get("ride")), req.text,
+              str(res.get("say") or ""), list(res.get("tools_used") or []), bool(res.get("ok")))
     return JSONResponse(_clean(res), status_code=200 if res.get("ok") else 503)
 
 
@@ -328,7 +329,7 @@ def viz_reroute_candidates(req: VizRerouteReq) -> JSONResponse:
     args: dict[str, Any] = {"change": req.change, "candidates": True}
     if req.hours is not None:
         args["hours"] = req.hours
-    res = ASSISTANT.run_tool("reroute_from_here", args, {"ride": ride})
+    res = ASSISTANT.run_tool("reroute_from_here", args, {"ride": ride}, record=False)
     result = res.get("result") or {}
     if isinstance(result, dict) and "error" in result:
         return JSONResponse(_clean({"ok": False, **result}), status_code=400)
@@ -336,11 +337,11 @@ def viz_reroute_candidates(req: VizRerouteReq) -> JSONResponse:
 
 
 @app.get("/api/viz/feed")
-def viz_feed(since: int = 0) -> JSONResponse:
-    """Read-only: the phone's last position report and the assistant tool
-    calls it triggered (voice or typed), with the engine's real results, so
-    the dashboard can follow a ride that is being driven from the phone."""
-    return ok(FEED.snapshot(since))
+def viz_feed(rider_key: str = "userA", since: int = 0) -> JSONResponse:
+    """Read-only: one rider's phone — its last position report and the
+    assistant tool calls it triggered (voice or typed), with the engine's real
+    results — so the dashboard can follow a ride being driven from the phone."""
+    return ok(FEED.snapshot(rider_key, since))
 
 
 @app.post("/api/assistant/tool")

@@ -181,13 +181,16 @@ export interface RideContext {
 }
 
 export type FeedEvent =
-  | { seq: number; at: number; kind: 'tool'; source: 'ask' | 'tool'; tool: string
+  | { seq: number; at: number; kind: 'tool'; rider_key: string; source: 'ask' | 'tool'; tool: string
       args: Record<string, unknown>; ride: RideContext | null; result: unknown }
-  | { seq: number; at: number; kind: 'say'; text: string; say: string; tools_used: string[]; ok: boolean }
+  | { seq: number; at: number; kind: 'say'; rider_key: string; text: string; say: string; tools_used: string[]; ok: boolean }
 
 export interface Feed {
   ok: boolean
+  rider_key: string
   seq: number
+  /** rider_keys that have posted a position report since the server started */
+  riders: string[]
   ride: PhoneRide | null
   ride_age_s: number | null
   phone_live: boolean
@@ -244,7 +247,8 @@ export const api = {
     lat: number; lon: number; rider_key: string; thrill: number; mode: string; change: string
     destination: [number, number] | null; current_cells: string[]; hours?: number
   }) => call<RerouteResult>('/api/viz/reroute_candidates', { method: 'POST', body: JSON.stringify(body) }),
-  feed: (since: number) => call<Feed>(`/api/viz/feed?since=${since}`),
+  feed: (rider_key: string, since: number) =>
+    call<Feed>(`/api/viz/feed?rider_key=${encodeURIComponent(rider_key)}&since=${since}`),
 }
 
 /** A tool result that is a plan (plan_route / plan_loop / reroute_from_here), or null. */

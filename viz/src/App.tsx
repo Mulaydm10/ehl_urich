@@ -218,9 +218,14 @@ export default function App() {
   useEffect(() => {
     if (!backendUp) return
     let stop = false
+    // Only this rider's phone; start from "now" so switching riders does not
+    // replay another rider's history.
+    seq.current = -1
+    setEvents([]); setFeed(null)
     const poll = async () => {
       try {
-        const f = await api.feed(seq.current)
+        const f = await api.feed(riderKey, seq.current < 0 ? Number.MAX_SAFE_INTEGER : seq.current)
+        if (seq.current < 0) seq.current = f.seq
         if (stop) return
         setFeed(f)
         if (f.events.length) {
@@ -233,7 +238,7 @@ export default function App() {
     void poll()
     const id = window.setInterval(() => void poll(), FEED_POLL_MS)
     return () => { stop = true; window.clearInterval(id) }
-  }, [backendUp]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [backendUp, riderKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The phone's own route, when we have no plan from a tool call yet.
   useEffect(() => {
@@ -316,8 +321,13 @@ export default function App() {
             {following
               ? <>Position and route come from the phone's live reports; the timeline below is off. When the rider talks to the assistant, its tool calls appear here and the map replays the engine's search on its own.</>
               : feed?.ride ? <>The phone's last report is {fmt(feed.ride_age_s, 0)} s old, so the simulated rider is shown instead. Assistant tool calls still arrive here.</>
-              : <>Waiting for the phone: nothing arrives until it navigates (position reports) or the rider uses the assistant. Meanwhile the controls below drive a simulated ride.</>}
+              : <>Waiting for <span className="font-mono text-ash">{riderKey}</span>'s phone: nothing arrives until it navigates (position reports) or the rider uses the assistant. Meanwhile the controls below drive a simulated ride.</>}
           </p>
+          {feed?.riders?.length ? (
+            <p className="mt-1 text-[10.5px] text-dim">phones seen: {feed.riders.map((k) => (
+              <button type="button" key={k} onClick={() => setRiderKey(k)} className={`ml-1 font-mono ${k === riderKey ? 'text-mlight' : 'underline decoration-dotted'}`}>{k}</button>
+            ))} · the Rider chips pick which phone to follow</p>
+          ) : null}
           {events.length ? (
             <ul className="mt-2 max-h-[200px] space-y-1.5 overflow-y-auto pr-1">
               {[...events].reverse().slice(0, 12).map((ev) => (

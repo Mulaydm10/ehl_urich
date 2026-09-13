@@ -958,9 +958,11 @@ class Assistant:
         return {"ok": True, "bike": bike}
 
     def run_tool(self, name: str, args: dict[str, Any],
-                 context: dict[str, Any] | None = None) -> dict[str, Any]:
+                 context: dict[str, Any] | None = None, record: bool = True) -> dict[str, Any]:
         """Execute one tool by name. Used by both the chat loop and the
-        realtime session, whose tool calls arrive from the phone.
+        realtime session, whose tool calls arrive from the phone. `record=False`
+        keeps the run out of `on_tool` — for read-only callers such as the viz
+        dashboard, whose own lookups are not something the phone did.
 
         The live ride — where the bike is and which plan it is following —
         travels as `_ride` from the app context rather than as tool arguments.
@@ -978,9 +980,11 @@ class Assistant:
             result = handler(args)
         except Exception as exc:  # noqa: BLE001 - report, don't crash the turn
             err = {"error": f"{type(exc).__name__}: {exc}"}
-            self._notify(name, args, ride, err, "tool")
+            if record:
+                self._notify(name, args, ride, err, "tool")
             return {"ok": False, "result": err, "for_model": err, "actions": []}
-        self._notify(name, args, ride, result, "tool")
+        if record:
+            self._notify(name, args, ride, result, "tool")
         # result is what the app draws, for_model is what is worth speaking:
         # the realtime model reads its tool output over the data channel, so
         # it must not be handed a route's full geometry.
