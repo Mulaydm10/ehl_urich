@@ -44,6 +44,9 @@ export function VoiceAssistant() {
   const [thinking, setThinking] = useState(false)
   const [cloud, setCloud] = useState<AssistantStatus | null>(null)
   const [usedCloud, setUsedCloud] = useState(false)
+  // Which of the app's own tools answered, so the footer names them rather
+  // than leaving the rider to guess whether the engine was involved.
+  const [usedTools, setUsedTools] = useState<string[]>([])
   const [cloudFailed, setCloudFailed] = useState(false)
   const [typed, setTyped] = useState('')
   const [live, setLive] = useState<RealtimeState | null>(null)
@@ -170,6 +173,7 @@ export function VoiceAssistant() {
       }
       setCloudFailed(false)
       setUsedCloud(true)
+      setUsedTools(answer.toolsUsed)
       setReply(answer.say)
       speak(answer.say)
       applyActions(answer.actions)
@@ -385,7 +389,13 @@ export function VoiceAssistant() {
               : live === 'live'
                 ? `Realtime voice \u00b7 ${cloud.realtime?.model ?? 'openai'} \u00b7 speaking live`
                 : `Cloud assistant \u00b7 ${cloud.model ?? 'openai'} \u00b7 ${
-                    canGoLive ? 'realtime voice ready' : usedCloud ? 'answered live' : 'ready'
+                    usedCloud
+                      ? usedTools.length
+                        ? `answered live · ${usedTools.join(', ')}`
+                        : 'answered live'
+                      : canGoLive
+                        ? 'realtime voice ready'
+                        : 'ready'
                   }`}
         </p>
       </section>

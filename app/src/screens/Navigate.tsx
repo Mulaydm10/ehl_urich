@@ -8,7 +8,7 @@ import { useAccent } from '../components/useAccent'
 import { useCopilot } from '../components/useCopilot'
 import { speak, useSpeech } from '../components/useSpeech'
 import { useAppState } from '../state/AppState'
-import { rideContext, setActiveRoute } from '../services/copilot'
+import { rideContext, setActiveRoute, setRideWants } from '../services/copilot'
 import {
   describeReroute,
   matchComplaint,
@@ -81,9 +81,16 @@ export function NavigateScreen() {
   // what he said, not what his model implies.
   const [pref, setPref] = useState<RidePreference | null>(() => getPreference())
   useEffect(() => subscribePreference(setPref), [])
+  const thrill = pref ? DIAL_Z[dialFor(pref)] : fit ? DIAL_Z[fit.dial] : 0.5
+  const mode = pref ? (modeKeyFor(pref) ?? 'flow') : (fit?.mode ?? 'flow')
+  // Every re-plan from here — chip, typed, spoken — must ask for what this
+  // caption says it asks for.
+  useEffect(() => {
+    setRideWants({ thrill, mode })
+  }, [thrill, mode])
   const { state, position, route, suggestion, why, accept, dismiss } = useCopilot(on, {
-    thrill: pref ? DIAL_Z[dialFor(pref)] : fit ? DIAL_Z[fit.dial] : 0.5,
-    mode: pref ? (modeKeyFor(pref) ?? 'flow') : (fit?.mode ?? 'flow'),
+    thrill,
+    mode,
     bikeId: bike?.id ?? null,
   })
 
@@ -384,7 +391,7 @@ export function NavigateScreen() {
             <button
               key={c.change}
               type="button"
-              disabled={!!busy || !position}
+              disabled={!!busy || !position || !route}
               onClick={() => void ask(c.change, c.said)}
               className="rounded-control border border-white/12 bg-panel px-3 py-3 text-left text-[13px] disabled:opacity-40"
             >
