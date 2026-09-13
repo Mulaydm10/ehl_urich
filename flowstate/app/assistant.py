@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from typing import Any, Callable
@@ -35,6 +36,13 @@ OPENAI_URL = os.environ.get(
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 MAX_TOOL_ROUNDS = 4
 REQUEST_TIMEOUT = 45
+# A rider mid-sentence will not wait out a rate limit, but one quick retry
+# rescues the 429s and 5xxs that clear on their own.
+RETRY_STATUS = (408, 409, 429, 500, 502, 503, 504)
+RETRY_PAUSE_S = 1.5
+# What one tool result may cost the model. Results are summarised before they
+# are sent, so this is a backstop, not the usual shape.
+TOOL_RESULT_CHARS = 4000
 
 # Realtime speech-to-speech. The phone holds the audio leg directly with
 # OpenAI over WebRTC, so the key must never leave this process: the app asks
@@ -66,6 +74,15 @@ demand matches this rider's skill. It only covers Bavaria (latitude 47.38 to
 48.03, longitude 10.72 to 11.96); outside that, say so rather than planning.
 Thrill is a number from 0 to 1: 0.15 cruise, 0.50 flow, 0.90 send it. Modes are
 flow, scenic and mountain.
+
+Place names you can use directly: {places}. Any other name has to be given as
+latitude and longitude, so if the rider names somewhere else, say you cannot
+place it and offer the nearest of these instead of guessing coordinates.
+
+A planned route comes back summarised: distance, riding time, fun score, the
+lean angle it asks for, and the roads it refused. Those refusals are the
+rider's own safety gate and are not negotiable - report them, never offer to
+plan around them.
 
 When the rider asks to see or plan something, call the function and also call
 open_screen so the app shows the result. Routes from plan_route and plan_loop
@@ -103,6 +120,18 @@ PLACES: dict[str, tuple[float, float]] = {
 COVERAGE = {"lat": (47.38, 48.03), "lon": (10.72, 11.96)}
 
 
+def _known_places() -> str:
+    """Distinct place names for the prompt; the dict holds spelling variants."""
+    seen: dict[tuple[float, float], str] = {}
+    for name, point in PLACES.items():
+        seen.setdefault(point, name)
+    return ", ".join(sorted(seen.values()))
+
+
+def _system_prompt() -> str:
+    return SYSTEM_PROMPT.format(places=_known_places())
+
+
 def _place(name: str) -> tuple[float, float] | None:
     key = name.strip().lower().replace("ü", "ue").replace("ö", "oe").replace("ä", "ae")
     if key in PLACES:
@@ -120,7 +149,8 @@ def _point(value: Any) -> tuple[float, float] | dict[str, str]:
     elif isinstance(value, str):
         hit = _place(value)
         if not hit:
-            return {"error": f"I don't know where {value} is."}
+            return {"error": f"I don't know where {value} is.",
+                    "known_places": _known_places()}
         lat, lon = hit
     elif isinstance(value, dict) and "lat" in value and "lon" in value:
         lat, lon = float(value["lat"]), float(value["lon"])
@@ -363,6 +393,50 @@ def _actions_for(name: str, result: Any) -> list[dict[str, Any]]:
     return []
 
 
+def _route_for_model(result: dict[str, Any]) -> dict[str, Any]:
+    """A route as the model needs to hear it, not as the map needs to draw it.
+
+    A plan carries a few hundred path points and cell ids. Sent whole they
+    crowd out the numbers that matter and get cut mid-token by the size cap,
+    which is how a model ends up narrating half a distance. The app still
+    receives the full plan through the show_route action.
+    """
+    summary = result.get("summary")
+    slim: dict[str, Any] = {
+        "ok": result.get("ok"),
+        "note": result.get("note"),
+        "rider": result.get("rider"),
+        "thrill": result.get("z_star"),
+        "points_in_path": len(result.get("path") or []),
+        "summary": summary if isinstance(summary, dict) else None,
+        "explain": (result.get("explain") or [])[:6],
+    }
+    refusals = result.get("refusals") or []
+    if refusals:
+        reasons: list[str] = []
+        for r in refusals:
+            reason = str(r.get("reason", "")) if isinstance(r, dict) else str(r)
+            if reason and reason not in reasons:
+                reasons.append(reason)
+        slim["refused_roads"] = len(refusals)
+        slim["refusal_reasons"] = reasons[:4]
+    return slim
+
+
+def _for_model(name: str, result: Any) -> Any:
+    """Shrink a tool result to what can be said out loud."""
+    if not isinstance(result, dict):
+        return result
+    if name in ("plan_route", "plan_loop") and "path" in result:
+        return _route_for_model(result)
+    if name == "compare_routes":
+        return {
+            key: _route_for_model(value) if isinstance(value, dict) and "path" in value else value
+            for key, value in result.items()
+        }
+    return result
+
+
 # --------------------------------------------------------------------------
 # tool execution against the same engine + cloud the REST API uses
 # --------------------------------------------------------------------------
@@ -524,13 +598,18 @@ class Assistant:
         realtime session, whose tool calls arrive from the phone."""
         handler = self.handlers().get(name)
         if handler is None:
-            return {"ok": False, "result": {"error": f"unknown tool {name}"}, "actions": []}
+            err = {"error": f"unknown tool {name}"}
+            return {"ok": False, "result": err, "for_model": err, "actions": []}
         try:
             result = handler(args)
         except Exception as exc:  # noqa: BLE001 - report, don't crash the turn
-            return {"ok": False, "result": {"error": f"{type(exc).__name__}: {exc}"},
-                    "actions": []}
-        return {"ok": True, "result": result, "actions": _actions_for(name, result)}
+            err = {"error": f"{type(exc).__name__}: {exc}"}
+            return {"ok": False, "result": err, "for_model": err, "actions": []}
+        # result is what the app draws, for_model is what is worth speaking:
+        # the realtime model reads its tool output over the data channel, so
+        # it must not be handed a route's full geometry.
+        return {"ok": True, "result": result, "for_model": _for_model(name, result),
+                "actions": _actions_for(name, result)}
 
     def handlers(self) -> dict[str, Callable[[dict[str, Any]], Any]]:
         return {
@@ -570,7 +649,7 @@ class Assistant:
             return {"ok": False, "error": "realtime_disabled",
                     "say": "Live voice is switched off on the server."}
 
-        instructions = SYSTEM_PROMPT
+        instructions = _system_prompt()
         if context:
             instructions += "\n\nCurrent app context: " + json.dumps(context)[:1500]
         body = json.dumps({
@@ -617,6 +696,17 @@ class Assistant:
     # -- OpenAI ------------------------------------------------------------
 
     def _call_openai(self, messages: list[dict[str, Any]], key: str) -> dict[str, Any]:
+        try:
+            return self._post_openai(messages, key)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in RETRY_STATUS:
+                raise
+        except (urllib.error.URLError, TimeoutError):
+            pass
+        time.sleep(RETRY_PAUSE_S)
+        return self._post_openai(messages, key)
+
+    def _post_openai(self, messages: list[dict[str, Any]], key: str) -> dict[str, Any]:
         body = json.dumps({
             "model": self.model,
             "messages": messages,
@@ -637,7 +727,7 @@ class Assistant:
             return {"ok": False, "error": "no_key",
                     "say": "The cloud assistant is not configured on the server."}
 
-        messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages: list[dict[str, Any]] = [{"role": "system", "content": _system_prompt()}]
         if context:
             messages.append({
                 "role": "system",
@@ -692,7 +782,7 @@ class Assistant:
                 messages.append({
                     "role": "tool",
                     "tool_call_id": call["id"],
-                    "content": json.dumps(result, default=str)[:6000],
+                    "content": json.dumps(_for_model(name, result), default=str)[:TOOL_RESULT_CHARS],
                 })
 
         return {"ok": True, "say": "That took too many steps, ask me something narrower.",

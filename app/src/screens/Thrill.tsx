@@ -96,16 +96,24 @@ export function ThrillScreen() {
   const [unreachable, setUnreachable] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  const [result, setResult] = useState<FsRouteResult | null>(() => takePendingPlan())
+  // A route the assistant planned arrives already shaped. The controls here
+  // describe the *next* plan, so at least point them at the right kind of
+  // ride rather than leaving A -> B selected under a loop.
+  const [assistantPlan, setAssistantPlan] = useState(() => result !== null)
+
   const [riderKey, setRiderKey] = useState('userA')
   const [mode, setMode] = useState('flow')
-  const [tab, setTab] = useState<'ab' | 'loop'>('ab')
+  const [tab, setTab] = useState<'ab' | 'loop'>(() =>
+    summaryOf(result)?.is_loop ? 'loop' : 'ab',
+  )
+
   const [pair, setPair] = useState<FsPresetRoute | null>(null)
   const [loopStart, setLoopStart] = useState<FsPresetLoop | null>(null)
   const [hours, setHours] = useState(2)
   const [dial, setDial] = useState<ThrillPreset>('Flow')
 
   const [busy, setBusy] = useState(false)
-  const [result, setResult] = useState<FsRouteResult | null>(() => takePendingPlan())
   const [comparison, setComparison] = useState<FsCompareResult | null>(null)
   const [note, setNote] = useState<string | null>(null)
 
@@ -142,6 +150,7 @@ export function ThrillScreen() {
     setBusy(true)
     setNote(null)
     setComparison(null)
+    setAssistantPlan(false)
     try {
       const r =
         tab === 'ab' && pair
@@ -164,6 +173,7 @@ export function ThrillScreen() {
     setBusy(true)
     setNote(null)
     setResult(null)
+    setAssistantPlan(false)
     try {
       const c = await flowstate.compare(pair.a, pair.b, riderKey, mode)
       setComparison(c)
@@ -219,6 +229,13 @@ export function ThrillScreen() {
       </PageHeader>
 
       <PlannerSwitch current="thrill" />
+
+      {assistantPlan ? (
+        <p className="caption mx-6 mt-4 rounded-panel border border-white/[0.08] bg-panel p-4">
+          Showing the {summaryOf(result)?.is_loop ? 'loop' : 'route'} the assistant planned. The
+          controls below set up your next plan and do not describe this one.
+        </p>
+      ) : null}
 
       <div className="mt-4 flex gap-2 px-6">
         <Chip active={tab === 'ab'} onClick={() => setTab('ab')}>A → B</Chip>

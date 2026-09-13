@@ -58,7 +58,7 @@ export function Shell({ children }: { children: ReactNode }) {
   return <div className="flex min-h-dvh justify-center bg-[#121315] md:py-6" style={theme}>
     <div className="relative flex h-dvh w-full max-w-[420px] flex-col overflow-hidden bg-void md:h-[min(900px,calc(100dvh-48px))] md:rounded-[32px] md:border md:border-white/[0.08] md:shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
       <StatusBar />
-      <main ref={main} id="main-content" className="scroll-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-[100px] scroll-pb-[100px] scroll-pt-4"><div key={pathname} className="screen-enter">{children}</div></main>
+      <main ref={main} id="main-content" className="scroll-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-[172px] scroll-pb-[172px] scroll-pt-4"><div key={pathname} className="screen-enter">{children}</div></main>
       <VoiceAssistant />
       <TabBar />
     </div>

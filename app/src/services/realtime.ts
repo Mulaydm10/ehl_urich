@@ -41,7 +41,10 @@ interface SessionGrant {
 
 interface ToolRun {
   ok: boolean
+  /** The whole thing, for the app to draw. */
   result: unknown
+  /** The same thing shrunk to what is worth speaking, when it differs. */
+  for_model?: unknown
   actions?: AssistantAction[]
 }
 
@@ -178,20 +181,22 @@ async function runTool(
   try {
     run = await http.post<ToolRun>('/api/assistant/tool', { name, args }, 45000)
   } catch {
-    run = { ok: false, result: { error: 'the app could not reach its backend' }, actions: [] }
+    const error = { error: 'the app could not reach its backend' }
+    run = { ok: false, result: error, for_model: error, actions: [] }
   }
   if (run.actions?.length) cb.onActions(run.actions)
 
-  // Hand the result back and ask for the spoken follow-up. The model is given
-  // a trimmed result for the same reason the typed path trims it: route
-  // geometry is thousands of points the model has no use for.
+  // Hand the result back and ask for the spoken follow-up. The backend sends
+  // a speakable version alongside the full one: route geometry is thousands
+  // of points the model has no use for, and truncating it mid-JSON is how a
+  // model ends up narrating half a distance.
   channel.send(
     JSON.stringify({
       type: 'conversation.item.create',
       item: {
         type: 'function_call_output',
         call_id: callId,
-        output: JSON.stringify(run.result).slice(0, 6000),
+        output: JSON.stringify(run.for_model ?? run.result).slice(0, 6000),
       },
     }),
   )
