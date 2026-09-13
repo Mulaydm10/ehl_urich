@@ -361,7 +361,7 @@ def render():
     st.caption(f"Coverage is Bavaria only — lat {COVERAGE[0]}–{COVERAGE[1]}, "
                f"lon {COVERAGE[2]}–{COVERAGE[3]}. Outside that box the crowd has "
                f"never ridden and the router says so rather than inventing a "
-               f"road. Everything on this screen came off a 5 MB local bake; "
+               f"road. Everything on this screen came off a 6 MB local bake; "
                f"no BMW data and no request leaves this machine.")
 
 
@@ -446,9 +446,10 @@ def _render_ab(S, P, rider_key: str, rl: list):
               help="Share of cells the two answers have in common.")
     if cmp["overlap"] > 0.60 and cmp["demand_gain"] < 0.5:
         st.caption("On this pair the dial barely moves the road, and the app "
-                   "says so rather than dressing it up. The crowd graph has one "
-                   "corridor here; where a second exists (try the first preset) "
-                   "the same dial puts you on 83% different tarmac.")
+                   "says so rather than dressing it up. Either the crowd graph "
+                   "has only one corridor here, or the more demanding road sits "
+                   "past this rider's safety gate - any road refused is pinned "
+                   "in red below.")
     else:
         st.caption("The router is not padding mileage — it is choosing "
                    "character. Same two points, roughly the same distance, a "

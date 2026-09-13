@@ -1,0 +1,766 @@
+{
+ "init_wall_ms": 11.6,
+ "status": {
+  "source": "bake demo.pkl",
+  "loaded_s": 0.012,
+  "cells": 5698,
+  "edges": 10318,
+  "riders": 4,
+  "osm": true,
+  "basemap_ways": 17345,
+  "precomputed": 21,
+  "joy_rides": 324,
+  "gems": 100,
+  "road_character": true,
+  "riders_modes": true
+ },
+ "bake_mb": 6.07,
+ "t_route_cached_graph_ms": {
+  "median": 21.5,
+  "min": 21.4,
+  "max": 22.0
+ },
+ "t_dial_change_fresh_graph_ms": {
+  "median": 40.2,
+  "min": 39.9,
+  "max": 41.6
+ },
+ "t_loop_3h_ms": {
+  "median": 166.7,
+  "min": 166.0,
+  "max": 170.0
+ },
+ "t_loop_2h_ms": {
+  "median": 156.4,
+  "min": 155.4,
+  "max": 158.4
+ },
+ "riders": [
+  {
+   "key": "userA",
+   "label": "User A - all rides",
+   "skill": 11.4,
+   "sigma": 5.59,
+   "gate": 22.59,
+   "hardest_ridden": 21.24,
+   "gate_agreement": 1.063,
+   "n_cells": 360,
+   "n_corners": 5253,
+   "grip_p95": 0.53
+  },
+  {
+   "key": "userC",
+   "label": "User C - all rides",
+   "skill": 10.65,
+   "sigma": 5.44,
+   "gate": 21.53,
+   "hardest_ridden": 20.08,
+   "gate_agreement": 1.072,
+   "n_cells": 592,
+   "n_corners": 15810,
+   "grip_p95": 0.59
+  },
+  {
+   "key": "bike_da67fa06",
+   "label": "Bike da67fa06",
+   "skill": 10.1,
+   "sigma": 6.57,
+   "gate": 23.25,
+   "hardest_ridden": 25.8,
+   "gate_agreement": 0.901,
+   "n_cells": 78,
+   "n_corners": 1648,
+   "grip_p95": 0.48
+  },
+  {
+   "key": "bike_4e1a9d64",
+   "label": "Bike 4e1a9d64",
+   "skill": 13.25,
+   "sigma": 5.32,
+   "gate": 23.89,
+   "hardest_ridden": 20.43,
+   "gate_agreement": 1.169,
+   "n_cells": 78,
+   "n_corners": 1312,
+   "grip_p95": 0.58
+  }
+ ],
+ "b1_headline": "Same two points. 1.13x the distance, 83% of it on different roads, +2.7 deg more lean asked of you.",
+ "b1_overlap": 0.167,
+ "b1_km_ratio": 1.131,
+ "b1_gain": 2.694,
+ "b1_cruise": {
+  "km": 46.913,
+  "minutes": 42.809,
+  "mean_demand": 7.02,
+  "max_demand": 17.051,
+  "peak_flow": 0.586,
+  "mean_flow": 0.254,
+  "grip_lat_p95": 0.226,
+  "refusals": 0,
+  "note": ""
+ },
+ "b1_send": {
+  "km": 53.041,
+  "minutes": 40.086,
+  "mean_demand": 9.714,
+  "max_demand": 22.381,
+  "peak_flow": 0.567,
+  "mean_flow": 0.211,
+  "grip_lat_p95": 0.327,
+  "refusals": 0,
+  "note": ""
+ },
+ "b1_caption": "choosing-character",
+ "b2_explain": [
+  "53 km, about 40 minutes.",
+  "This road asks a mean 9.7 deg of lean and peaks at 22.4 deg. Your gate is 22.6 deg, which is 2 sigma above the road you habitually ride.",
+  "Best five kilometres score 0.57 out of 1 for fit at this dial setting.",
+  "Cornering asks about 33% of the tyre's grip here, against the 53% you have already used on your own rides.",
+  "Nothing on this route crosses your safety gate.",
+  "Hard braking around km 47: 4 of the 41 trips that ride this stretch set off the ABS hard-braking code here - across the crowd data, stretches where this happens tend to see it again in other trips.",
+  "Tightening bend around km 28: the corner radius drops from 670 m to 122 m in one step. Shown for safety; it is not part of the fun score.",
+  "Tightening bend around km 31: the corner radius drops from 319 m to 112 m in one step. Shown for safety; it is not part of the fun score."
+ ],
+ "b3_headline": "Same two points. 0.98x the distance, 15% of it on different roads, -0.2 deg more lean asked of you.",
+ "b3_overlap": 0.848,
+ "b3_gain": -0.167,
+ "b3_caption": "barely-moves",
+ "b3_cruise": {
+  "km": 58.734,
+  "minutes": 50.341,
+  "mean_demand": 8.742,
+  "max_demand": 19.248,
+  "peak_flow": 0.838,
+  "mean_flow": 0.371,
+  "grip_lat_p95": 0.271,
+  "refusals": 3,
+  "note": ""
+ },
+ "b3_send": {
+  "km": 57.689,
+  "minutes": 50.022,
+  "mean_demand": 8.575,
+  "max_demand": 19.248,
+  "peak_flow": 0.459,
+  "mean_flow": 0.173,
+  "grip_lat_p95": 0.271,
+  "refusals": 3,
+  "note": ""
+ },
+ "b3_send_refusals_reasons": [
+  "REFUSED \u2014 the crowd leans 24.1\u00b0 here, past your gate of 22.6\u00b0 (11.4\u00b0 + 2\u03c3)",
+  "REFUSED \u2014 the crowd leans 26.9\u00b0 here, past your gate of 22.6\u00b0 (11.4\u00b0 + 2\u03c3)",
+  "REFUSED \u2014 the crowd leans 26.2\u00b0 here, past your gate of 22.6\u00b0 (11.4\u00b0 + 2\u03c3)"
+ ],
+ "b3_send_explain": [
+  "58 km, about 50 minutes.",
+  "This road asks a mean 8.6 deg of lean and peaks at 19.2 deg. Your gate is 22.6 deg, which is 2 sigma above the road you habitually ride.",
+  "Best five kilometres score 0.46 out of 1 for fit at this dial setting.",
+  "Cornering asks about 27% of the tyre's grip here, against the 53% you have already used on your own rides.",
+  "3 road(s) near this route were refused outright, not just made expensive:",
+  "    REFUSED \u2014 the crowd leans 24.1\u00b0 here, past your gate of 22.6\u00b0 (11.4\u00b0 + 2\u03c3)",
+  "    REFUSED \u2014 the crowd leans 26.9\u00b0 here, past your gate of 22.6\u00b0 (11.4\u00b0 + 2\u03c3)",
+  "    REFUSED \u2014 the crowd leans 26.2\u00b0 here, past your gate of 22.6\u00b0 (11.4\u00b0 + 2\u03c3)",
+  "Tightening bend around km 17: the corner radius drops from 503 m to 158 m in one step. Shown for safety; it is not part of the fun score.",
+  "Tightening bend around km 44: the corner radius drops from 213 m to 61 m in one step. Shown for safety; it is not part of the fun score.",
+  "1 cells had no corner in the crowd data and were treated as straight, not as missing."
+ ],
+ "rider_switch_shared": {
+  "LB:userC:0.15": 1.0,
+  "LB:userC:0.5": 1.0,
+  "LB:userC:0.9": 0.167,
+  "LB:bike_4e1a9d64:0.15": 1.0,
+  "LB:bike_4e1a9d64:0.5": 0.167,
+  "LB:bike_4e1a9d64:0.9": 0.992,
+  "LB:bike_da67fa06:0.15": 1.0,
+  "LB:bike_da67fa06:0.5": 1.0,
+  "LB:bike_da67fa06:0.9": 1.0,
+  "LK:userC:0.15": 1.0,
+  "LK:userC:0.5": 1.0,
+  "LK:userC:0.9": 0.298,
+  "LK:bike_4e1a9d64:0.15": 1.0,
+  "LK:bike_4e1a9d64:0.5": 0.246,
+  "LK:bike_4e1a9d64:0.9": 0.994,
+  "LK:bike_da67fa06:0.15": 1.0,
+  "LK:bike_da67fa06:0.5": 0.679,
+  "LK:bike_da67fa06:0.9": 1.0,
+  "KT:userC:0.15": 0.993,
+  "KT:userC:0.5": 0.911,
+  "KT:userC:0.9": 1.0,
+  "KT:bike_4e1a9d64:0.15": 0.73,
+  "KT:bike_4e1a9d64:0.5": 0.86,
+  "KT:bike_4e1a9d64:0.9": 0.105,
+  "KT:bike_da67fa06:0.15": 0.986,
+  "KT:bike_da67fa06:0.5": 0.79,
+  "KT:bike_da67fa06:0.9": 0.86
+ },
+ "cand_C_headline": "Same two points. 1.00x the distance, 0% of it on different roads, +0.0 deg more lean asked of you.",
+ "cand_C_cruise": {
+  "km": 46.913,
+  "minutes": 42.809,
+  "mean_demand": 7.02,
+  "max_demand": 17.051,
+  "peak_flow": 0.594,
+  "mean_flow": 0.287,
+  "grip_lat_p95": 0.226,
+  "refusals": 1,
+  "note": ""
+ },
+ "cand_C_send": {
+  "km": 46.913,
+  "minutes": 42.809,
+  "mean_demand": 7.02,
+  "max_demand": 17.051,
+  "peak_flow": 0.345,
+  "mean_flow": 0.108,
+  "grip_lat_p95": 0.226,
+  "refusals": 1,
+  "note": ""
+ },
+ "cand_C_send_explain": [
+  "47 km, about 43 minutes.",
+  "This road asks a mean 7.0 deg of lean and peaks at 17.1 deg. Your gate is 21.5 deg, which is 2 sigma above the road you habitually ride.",
+  "Best five kilometres score 0.35 out of 1 for fit at this dial setting.",
+  "Cornering asks about 23% of the tyre's grip here, against the 59% you have already used on your own rides.",
+  "1 road(s) near this route were refused outright, not just made expensive:",
+  "    REFUSED \u2014 the crowd leans 22.4\u00b0 here, past your gate of 21.5\u00b0 (10.7\u00b0 + 2\u03c3)",
+  "Hard braking around km 31: 3 of the 54 trips that ride this stretch set off the ABS hard-braking code here - across the crowd data, stretches where this happens tend to see it again in other trips.",
+  "Hard braking around km 41: 4 of the 41 trips that ride this stretch set off the ABS hard-braking code here - across the crowd data, stretches where this happens tend to see it again in other trips.",
+  "Tightening bend around km 4: the corner radius drops from 444 m to 117 m in one step. Shown for safety; it is not part of the fun score.",
+  "Tightening bend around km 8: the corner radius drops from 250 m to 33 m in one step. Shown for safety; it is not part of the fun score."
+ ],
+ "cand_C_send_refusals": [
+  "REFUSED \u2014 the crowd leans 22.4\u00b0 here, past your gate of 21.5\u00b0 (10.7\u00b0 + 2\u03c3)"
+ ],
+ "cand_A_send_refusals": [],
+ "cand_A_line_cells_gated_for_C": 2,
+ "cand_A_line_cells_gated_for_A": 0,
+ "cand_A_line_max_demand_on_line": 22.38,
+ "cand_C_KT_headline": "Same two points. 0.98x the distance, 16% of it on different roads, -0.1 deg more lean asked of you.",
+ "b4_loop_userA": {
+  "km": 133.38,
+  "minutes": 118.7,
+  "mean_demand": 9.882,
+  "max_demand": 22.21,
+  "peak_flow": 0.579,
+  "mean_flow": 0.231,
+  "distinct_share": 0.936,
+  "budget_min": 120.0,
+  "grip_lat_p95": 0.291,
+  "refusals": 1,
+  "note": "Loop: 94% of the cells are ridden once, the rest is unavoidable retracing."
+ },
+ "b4_explain": [
+  "A 133 km loop back to where you started, 119 minutes of riding against the 120 you asked for.",
+  "94% of it is road you only ride once; the rest is unavoidable retracing.",
+  "This road asks a mean 9.9 deg of lean and peaks at 22.2 deg. Your gate is 22.6 deg, which is 2 sigma above the road you habitually ride.",
+  "Best five kilometres score 0.58 out of 1 for fit at this dial setting.",
+  "Cornering asks about 29% of the tyre's grip here, against the 53% you have already used on your own rides.",
+  "1 road(s) near this route were refused outright, not just made expensive:",
+  "    REFUSED \u2014 the crowd leans 24.3\u00b0 here, past your gate of 22.6\u00b0 (11.4\u00b0 + 2\u03c3)",
+  "Hard braking around km 118: 3 of the 162 trips that ride this stretch set off the ABS hard-braking code here - across the crowd data, stretches where this happens tend to see it again in other trips.",
+  "Tightening bend around km 96: the corner radius drops from 361 m to 51 m in one step. Shown for safety; it is not part of the fun score.",
+  "Tightening bend around km 120: the corner radius drops from 521 m to 152 m in one step. Shown for safety; it is not part of the fun score."
+ ],
+ "b4_loop_userC": {
+  "km": 135.957,
+  "minutes": 119.29,
+  "mean_demand": 8.964,
+  "max_demand": 19.661,
+  "peak_flow": 0.584,
+  "mean_flow": 0.211,
+  "distinct_share": 0.893,
+  "budget_min": 120.0,
+  "grip_lat_p95": 0.285,
+  "refusals": 2,
+  "note": "Loop: 89% of the cells are ridden once, the rest is unavoidable retracing."
+ },
+ "b4_loop_A_flow_baked": {
+  "km": 133.38,
+  "minutes": 118.7,
+  "mean_demand": 9.882,
+  "max_demand": 22.21,
+  "peak_flow": 0.623,
+  "mean_flow": 0.338,
+  "distinct_share": 0.936,
+  "budget_min": 120.0,
+  "grip_lat_p95": 0.291,
+  "refusals": 1,
+  "note": "Loop: 94% of the cells are ridden once, the rest is unavoidable retracing."
+ },
+ "modes": [
+  {
+   "key": "flow",
+   "verdict": "DEFAULT",
+   "phase4": false,
+   "offered": true
+  },
+  {
+   "key": "scenic",
+   "verdict": "PASS",
+   "phase4": false,
+   "offered": true
+  },
+  {
+   "key": "adventure",
+   "verdict": "FAIL",
+   "phase4": false,
+   "offered": false
+  },
+  {
+   "key": "mountain",
+   "verdict": "PASS",
+   "phase4": false,
+   "offered": true
+  },
+  {
+   "key": "urban",
+   "verdict": "PASS",
+   "phase4": true,
+   "offered": false
+  }
+ ],
+ "mode_LB_scenic": {
+  "shared_with_flow": 0.985,
+  "km": 53.041,
+  "minutes": 40.144,
+  "elev_mean flow->mode": [
+   750.2,
+   752.2
+  ],
+  "prominence flow->mode": [
+   5.1,
+   5.3
+  ]
+ },
+ "mode_LB_mountain": {
+  "shared_with_flow": 0.163,
+  "km": 46.912,
+  "minutes": 42.696,
+  "elev_mean flow->mode": [
+   750.2,
+   724.2
+  ],
+  "prominence flow->mode": [
+   5.1,
+   -1.2
+  ]
+ },
+ "mode_KT_scenic": {
+  "shared_with_flow": 0.248,
+  "km": 54.676,
+  "minutes": 45.06,
+  "elev_mean flow->mode": [
+   652.2,
+   688.8
+  ],
+  "prominence flow->mode": [
+   -13.3,
+   1.6
+  ]
+ },
+ "mode_KT_mountain": {
+  "shared_with_flow": 0.245,
+  "km": 54.195,
+  "minutes": 45.744,
+  "elev_mean flow->mode": [
+   652.2,
+   687.5
+  ],
+  "prominence flow->mode": [
+   -13.3,
+   0.1
+  ]
+ },
+ "pareto_LB_userA": {
+  "ok": true,
+  "verdict": "PASS",
+  "frontier": [
+   {
+    "mode": "flow",
+    "z_star": 0.7,
+    "minutes": 40.08640923560103,
+    "km": 53.04120865862201,
+    "mean_demand": 9.714149978636097
+   }
+  ],
+  "routes_tried": 15
+ },
+ "pareto_LK_userA": {
+  "ok": true,
+  "verdict": "PASS",
+  "frontier": [
+   {
+    "mode": "flow",
+    "z_star": 0.7,
+    "minutes": 51.61789881670184,
+    "km": 68.72837662929444,
+    "mean_demand": 9.591497806464485
+   }
+  ],
+  "routes_tried": 15
+ },
+ "pareto_KT_userA": {
+  "ok": true,
+  "verdict": "PASS",
+  "frontier": [
+   {
+    "mode": "scenic",
+    "z_star": 0.9,
+    "minutes": 45.060288780146614,
+    "km": 54.67579438746306,
+    "mean_demand": 6.97013242363539
+   },
+   {
+    "mode": "scenic",
+    "z_star": 0.15,
+    "minutes": 45.37638859297619,
+    "km": 54.70503923733576,
+    "mean_demand": 7.045705985344453
+   },
+   {
+    "mode": "scenic",
+    "z_star": 0.5,
+    "minutes": 45.648640339292875,
+    "km": 55.13052550089078,
+    "mean_demand": 7.084786605536932
+   },
+   {
+    "mode": "scenic",
+    "z_star": 0.3,
+    "minutes": 45.74261890040264,
+    "km": 55.27085628960833,
+    "mean_demand": 7.100964808009179
+   },
+   {
+    "mode": "mountain",
+    "z_star": 0.15,
+    "minutes": 49.617142367234834,
+    "km": 58.059611300958785,
+    "mean_demand": 8.747548751049173
+   },
+   {
+    "mode": "flow",
+    "z_star": 0.3,
+    "minutes": 49.711120928344606,
+    "km": 58.199942089676334,
+    "mean_demand": 8.758903511153918
+   }
+  ],
+  "routes_tried": 15
+ },
+ "pareto_LB_userC": {
+  "ok": true,
+  "verdict": "PASS",
+  "frontier": [
+   {
+    "mode": "scenic",
+    "z_star": 0.5,
+    "minutes": 42.69648893634014,
+    "km": 46.91169407341424,
+    "mean_demand": 7.011780136682481
+   },
+   {
+    "mode": "flow",
+    "z_star": 0.15,
+    "minutes": 42.80872059938133,
+    "km": 46.91267355179541,
+    "mean_demand": 7.019685627153079
+   }
+  ],
+  "routes_tried": 15
+ },
+ "loop_arc": "arc loop verdict FAIL; loop() is the answer",
+ "suggest_mode": "mood detection verdict FAIL; not offered",
+ "rhythm_fit": "rhythm match verdict NOT-PERSONAL",
+ "default_mode": {
+  "mode": "flow",
+  "why": "bike -> mode verdict DEFAULT-ONLY; every ride opens on Flow"
+ },
+ "rider_joy_userA": {
+  "ok": true,
+  "rider": "userA",
+  "verdict": "WEAK",
+  "length_flag": false,
+  "n_rides": 94,
+  "median_joy": -0.0013086074455811586,
+  "components": {
+   "E_envelope": {
+    "auc": 0.475,
+    "ci": [
+     0.301,
+     0.652
+    ]
+   },
+   "R_reversals_km": {
+    "auc": 0.681,
+    "ci": [
+     0.505,
+     0.846
+    ]
+   },
+   "T_throttle_entropy": {
+    "auc": 0.659,
+    "ci": [
+     0.496,
+     0.809
+    ]
+   },
+   "U_uninterrupted": {
+    "auc": 0.916,
+    "ci": [
+     0.838,
+     0.976
+    ]
+   },
+   "joy": {
+    "auc": 0.675,
+    "ci": [
+     0.508,
+     0.828
+    ]
+   }
+  },
+  "grip_budget": {
+   "verdict": "FAIL",
+   "auc": 0.5501402541472741,
+   "ci_lo": 0.450301810975911,
+   "ci_hi": 0.6702523342937285,
+   "n_hard_brake": 7869,
+   "n_abs": 53,
+   "n_abs_rides": 25,
+   "median_grip_abs": 0.06775958816970683,
+   "median_grip_no_abs": 0.050953649130518495,
+   "rate_by_lean": {
+    "<10": [
+     5945,
+     0.006223717409587889
+    ],
+    "10-20": [
+     1177,
+     0.009345794392523364
+    ],
+    ">20": [
+     747,
+     0.006693440428380187
+    ]
+   }
+  },
+  "explain": [
+   "Measured on 94 rides, from telemetry alone.",
+   "Tested on this rider's rides: commutes against same-length stretches of long rides. The meter separates them with AUC 0.68 (95% CI 0.51\u20130.83): verdict WEAK.",
+   "What carries it on both riders: share of distance you kept moving above 15 km/h.",
+   "Points the opposite way on the other rider, so not trusted: left-right changes of lean per km.",
+   "Tested and not supported: that ABS fires because grip was already spent cornering (AUC 0.55, CI 0.45\u20130.67)."
+  ]
+ },
+ "rider_joy_userC": {
+  "ok": true,
+  "rider": "userC",
+  "verdict": "WEAK",
+  "length_flag": false,
+  "n_rides": 176,
+  "median_joy": -0.03677274463345949,
+  "components": {
+   "E_envelope": {
+    "auc": 0.391,
+    "ci": [
+     0.255,
+     0.532
+    ]
+   },
+   "R_reversals_km": {
+    "auc": 0.279,
+    "ci": [
+     0.165,
+     0.412
+    ]
+   },
+   "T_throttle_entropy": {
+    "auc": 0.843,
+    "ci": [
+     0.722,
+     0.94
+    ]
+   },
+   "U_uninterrupted": {
+    "auc": 0.951,
+    "ci": [
+     0.893,
+     0.989
+    ]
+   },
+   "joy": {
+    "auc": 0.637,
+    "ci": [
+     0.509,
+     0.764
+    ]
+   }
+  },
+  "grip_budget": {
+   "verdict": "FAIL",
+   "auc": 0.5279642882378506,
+   "ci_lo": 0.4440448871444428,
+   "ci_hi": 0.6123118372239384,
+   "n_hard_brake": 41857,
+   "n_abs": 601,
+   "n_abs_rides": 69,
+   "median_grip_abs": 0.05655128002493813,
+   "median_grip_no_abs": 0.051652890894454614,
+   "rate_by_lean": {
+    "<10": [
+     32663,
+     0.013654593882986866
+    ],
+    "10-20": [
+     5868,
+     0.012440354464894342
+    ],
+    ">20": [
+     3326,
+     0.02465423932651834
+    ]
+   }
+  },
+  "explain": [
+   "Measured on 176 rides, from telemetry alone.",
+   "Tested on this rider's rides: commutes against same-length stretches of long rides. The meter separates them with AUC 0.64 (95% CI 0.51\u20130.76): verdict WEAK.",
+   "What carries it on both riders: share of distance you kept moving above 15 km/h.",
+   "Points the opposite way on the other rider, so not trusted: left-right changes of lean per km.",
+   "Tested and not supported: that ABS fires because grip was already spent cornering (AUC 0.53, CI 0.44\u20130.61)."
+  ]
+ },
+ "gate_raw_s2": {
+  "skill": 14.68,
+  "sigma": 6.31,
+  "gate": 27.29,
+  "hardest": 26.62,
+  "agreement": 1.025,
+  "n_cells": 586
+ },
+ "gate_raw_c16": {
+  "skill": 12.63,
+  "sigma": 5.19,
+  "gate": 23.01,
+  "hardest": 23.18,
+  "agreement": 0.992,
+  "n_cells": 360
+ },
+ "bridge_filtered": {
+  "n": 5253,
+  "r_signed": 0.765,
+  "r_abs": 0.765,
+  "slope_ols_abs": 0.601
+ },
+ "bridge_all": {
+  "n": 5747,
+  "r_signed": 0.73,
+  "r_abs": 0.73,
+  "slope_ols_abs": 0.534
+ },
+ "grid_s2_cells": 26987,
+ "grid_s2_lean_cols": [
+  "crowd_lean_p50",
+  "crowd_lean_p90",
+  "demand_p50",
+  "demand_p90"
+ ],
+ "crowd_bridge_crowd_lean_p90": {
+  "n": 6734,
+  "r": 0.924
+ },
+ "grid_c16_cells": 5698,
+ "risk_bands": [
+  {
+   "band": "(-9.0, -1.0]",
+   "corners": 3110,
+   "events": 7,
+   "rate_pct": 0.23
+  },
+  {
+   "band": "(-1.0, 0.0]",
+   "corners": 1151,
+   "events": 2,
+   "rate_pct": 0.17
+  },
+  {
+   "band": "(0.0, 0.5]",
+   "corners": 343,
+   "events": 1,
+   "rate_pct": 0.29
+  },
+  {
+   "band": "(0.5, 1.0]",
+   "corners": 269,
+   "events": 2,
+   "rate_pct": 0.74
+  },
+  {
+   "band": "(1.0, 2.0]",
+   "corners": 265,
+   "events": 2,
+   "rate_pct": 0.75
+  },
+  {
+   "band": "(2.0, 9.0]",
+   "corners": 115,
+   "events": 1,
+   "rate_pct": 0.87
+  }
+ ],
+ "risk_fisher_p": 0.0709,
+ "risk_ratio": 3.63,
+ "risk_events_total": 15,
+ "risk_boot_ci": [
+  0.0,
+  17.1
+ ],
+ "osm_s2": {
+  "cells": 26987,
+  "matched": 17034,
+  "share": 0.631,
+  "median_snap_m": 5.8
+ },
+ "legal_speed_changed_cols": [
+  "demand_p90",
+  "demand_capped",
+  "demand_before_cap"
+ ],
+ "speed_limit_c16": {
+  "cells_with_limit_and_p85": 2237,
+  "over_10pct": 1173,
+  "share_over": 0.524,
+  "median_ratio": 1.11
+ },
+ "legal_speed_repriced": {
+  "col": "demand_p90",
+  "cells": 1171,
+  "mean_before": 9.67,
+  "mean_after": 5.6
+ },
+ "corners_bikes": 15,
+ "bike_lean_p95_spread_min20": {
+  "bikes": 12,
+  "spread": 13.4
+ },
+ "bike_lean_p95_spread_min30": {
+  "bikes": 12,
+  "spread": 13.4
+ },
+ "bike_lean_p95_spread_min50": {
+  "bikes": 11,
+  "spread": 13.4
+ },
+ "bike_lean_p95_spread_min100": {
+  "bikes": 6,
+  "spread": 6.29
+ },
+ "manifest": {
+  "rows": 101,
+  "bikes": 20
+ },
+ "corners_rides": 67,
+ "road_grid_cells": 1090
+}

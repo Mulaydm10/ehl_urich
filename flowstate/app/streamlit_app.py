@@ -679,7 +679,7 @@ with TAB_DIAL:
     k[4].metric("Top-set centroid", f"{best['lat'].mean():.2f}°N")
     k[5].metric("…longitude", f"{best['lon'].mean():.2f}°E")
     st.caption("Watch the centroid: the selection walks south out of Munich and into the "
-               "Alps as the dial goes up — 47.16°N at Cruise, 46.88°N at Send it. "
+               "Alps as the dial goes up — 47.16°N at Cruise, 46.93°N at Send it."
                "Nothing about geography is in the model; it falls out of the lean demand.")
 
     c_map, c_tab = st.columns([3, 2])

@@ -1,0 +1,455 @@
+{
+ "riders": [
+  "User A - all rides",
+  "User C - all rides",
+  "Bike da67fa06",
+  "Bike 4e1a9d64"
+ ],
+ "runs": [
+  {
+   "what": "default",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 1.13x the distance, 83% of it on different roads, +2.7 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "11.4\u00b0",
+    "Gate agreement": "1.063\u00d7",
+    "Safety gate": "22.6\u00b0",
+    "Cruise": "47 km",
+    "Send it": "53 km",
+    "Shared road": "17%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "AB User A - all rides / lenggries_bad_toelz",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 1.13x the distance, 83% of it on different roads, +2.7 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "11.4\u00b0",
+    "Gate agreement": "1.063\u00d7",
+    "Safety gate": "22.6\u00b0",
+    "Cruise": "47 km",
+    "Send it": "53 km",
+    "Shared road": "17%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "AB User A - all rides / lenggries_kochel",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 1.11x the distance, 75% of it on different roads, +2.3 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "11.4\u00b0",
+    "Gate agreement": "1.063\u00d7",
+    "Safety gate": "22.6\u00b0",
+    "Cruise": "62 km",
+    "Send it": "69 km",
+    "Shared road": "25%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "AB User A - all rides / kochel_tegernsee",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 0.98x the distance, 15% of it on different roads, -0.2 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "11.4\u00b0",
+    "Gate agreement": "1.063\u00d7",
+    "Safety gate": "22.6\u00b0",
+    "Cruise": "59 km",
+    "Send it": "58 km",
+    "Shared road": "85%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": true,
+   "barely_moves_caption": true
+  },
+  {
+   "what": "AB User C - all rides / lenggries_bad_toelz",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 1.00x the distance, 0% of it on different roads, +0.0 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "10.7\u00b0",
+    "Gate agreement": "1.072\u00d7",
+    "Safety gate": "21.5\u00b0",
+    "Cruise": "47 km",
+    "Send it": "47 km",
+    "Shared road": "100%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": true,
+   "barely_moves_caption": true
+  },
+  {
+   "what": "AB User C - all rides / lenggries_kochel",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 1.01x the distance, 12% of it on different roads, +0.3 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "10.7\u00b0",
+    "Gate agreement": "1.072\u00d7",
+    "Safety gate": "21.5\u00b0",
+    "Cruise": "62 km",
+    "Send it": "63 km",
+    "Shared road": "88%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": true,
+   "barely_moves_caption": true
+  },
+  {
+   "what": "AB User C - all rides / kochel_tegernsee",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 0.98x the distance, 16% of it on different roads, -0.1 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "10.7\u00b0",
+    "Gate agreement": "1.072\u00d7",
+    "Safety gate": "21.5\u00b0",
+    "Cruise": "59 km",
+    "Send it": "58 km",
+    "Shared road": "84%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": true,
+   "barely_moves_caption": true
+  },
+  {
+   "what": "AB Bike da67fa06 / lenggries_bad_toelz",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 1.13x the distance, 83% of it on different roads, +2.7 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "10.1\u00b0",
+    "Gate agreement": "0.901\u00d7",
+    "Safety gate": "23.2\u00b0",
+    "Cruise": "47 km",
+    "Send it": "53 km",
+    "Shared road": "17%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "AB Bike da67fa06 / lenggries_kochel",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 1.11x the distance, 75% of it on different roads, +2.3 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "10.1\u00b0",
+    "Gate agreement": "0.901\u00d7",
+    "Safety gate": "23.2\u00b0",
+    "Cruise": "62 km",
+    "Send it": "69 km",
+    "Shared road": "25%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "AB Bike da67fa06 / kochel_tegernsee",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 0.99x the distance, 28% of it on different roads, +0.4 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "10.1\u00b0",
+    "Gate agreement": "0.901\u00d7",
+    "Safety gate": "23.2\u00b0",
+    "Cruise": "59 km",
+    "Send it": "58 km",
+    "Shared road": "72%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": true,
+   "barely_moves_caption": true
+  },
+  {
+   "what": "AB Bike 4e1a9d64 / lenggries_bad_toelz",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 1.13x the distance, 84% of it on different roads, +2.7 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "13.2\u00b0",
+    "Gate agreement": "1.169\u00d7",
+    "Safety gate": "23.9\u00b0",
+    "Cruise": "47 km",
+    "Send it": "53 km",
+    "Shared road": "16%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "AB Bike 4e1a9d64 / lenggries_kochel",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 1.11x the distance, 76% of it on different roads, +2.3 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "13.2\u00b0",
+    "Gate agreement": "1.169\u00d7",
+    "Safety gate": "23.9\u00b0",
+    "Cruise": "62 km",
+    "Send it": "69 km",
+    "Shared road": "24%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "AB Bike 4e1a9d64 / kochel_tegernsee",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 0.96x the distance, 90% of it on different roads, -0.5 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "13.2\u00b0",
+    "Gate agreement": "1.169\u00d7",
+    "Safety gate": "23.9\u00b0",
+    "Cruise": "58 km",
+    "Send it": "56 km",
+    "Shared road": "10%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": true,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "LOOP User A - all rides / kochel 2h Send it",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": null,
+   "metrics": {
+    "Skill": "11.4\u00b0",
+    "Gate agreement": "1.063\u00d7",
+    "Safety gate": "22.6\u00b0",
+    "Road ridden only once": "94%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "LOOP User A - all rides / holzkirchen 2h Send it",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": null,
+   "metrics": {
+    "Skill": "11.4\u00b0",
+    "Gate agreement": "1.063\u00d7",
+    "Safety gate": "22.6\u00b0",
+    "Road ridden only once": "96%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "LOOP User A - all rides / schliersee 2h Send it",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": null,
+   "metrics": {
+    "Skill": "11.4\u00b0",
+    "Gate agreement": "1.063\u00d7",
+    "Safety gate": "22.6\u00b0",
+    "Road ridden only once": "96%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "LOOP User A - all rides / lenggries 2h Send it",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": null,
+   "metrics": {
+    "Skill": "11.4\u00b0",
+    "Gate agreement": "1.063\u00d7",
+    "Safety gate": "22.6\u00b0",
+    "Road ridden only once": "92%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "LOOP User C - all rides / kochel 2h Send it",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": null,
+   "metrics": {
+    "Skill": "10.7\u00b0",
+    "Gate agreement": "1.072\u00d7",
+    "Safety gate": "21.5\u00b0",
+    "Road ridden only once": "89%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "LOOP User C - all rides / holzkirchen 2h Send it",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": null,
+   "metrics": {
+    "Skill": "10.7\u00b0",
+    "Gate agreement": "1.072\u00d7",
+    "Safety gate": "21.5\u00b0",
+    "Road ridden only once": "93%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "LOOP User C - all rides / schliersee 2h Send it",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": null,
+   "metrics": {
+    "Skill": "10.7\u00b0",
+    "Gate agreement": "1.072\u00d7",
+    "Safety gate": "21.5\u00b0",
+    "Road ridden only once": "95%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "LOOP User C - all rides / lenggries 2h Send it",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": null,
+   "metrics": {
+    "Skill": "10.7\u00b0",
+    "Gate agreement": "1.072\u00d7",
+    "Safety gate": "21.5\u00b0",
+    "Road ridden only once": "89%",
+    "Top-set centroid": "47.06\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "DIAL z*=0.15",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 1.13x the distance, 83% of it on different roads, +2.7 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "11.4\u00b0",
+    "Gate agreement": "1.063\u00d7",
+    "Safety gate": "22.6\u00b0",
+    "Cruise": "47 km",
+    "Send it": "53 km",
+    "Shared road": "17%",
+    "Top-set centroid": "47.16\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  },
+  {
+   "what": "DIAL z*=0.9",
+   "tabs": 5,
+   "exceptions": [],
+   "errors": [
+    "**DO NOT ACT.** The interval clears zero on this estimator, but the estimators disagree on the *sign*. That is not an asymmetry, that is noise wearing a confide"
+   ],
+   "headline": "<div class='fs-head'>Same two points. 1.13x the distance, 83% of it on different roads, +2.7 deg more lean asked of you.</div>",
+   "metrics": {
+    "Skill": "11.4\u00b0",
+    "Gate agreement": "1.063\u00d7",
+    "Safety gate": "22.6\u00b0",
+    "Cruise": "47 km",
+    "Send it": "53 km",
+    "Shared road": "17%",
+    "Top-set centroid": "46.93\u00b0N"
+   },
+   "refused_caption": false,
+   "barely_moves_caption": false
+  }
+ ],
+ "total_exceptions": 0
+}

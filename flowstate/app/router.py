@@ -445,8 +445,8 @@ def score_cells(cells: pd.DataFrame, rider: Rider, z_star: float,
     reason = np.full(n, "", dtype=object)
     reason = np.where(
         gated,
-        np.array([f"REFUSED — the crowd leans {d:.0f}° here, past your gate of "
-                  f"{gate:.0f}° ({skill:.0f}° + 2σ)" for d in demand], dtype=object),
+        np.array([f"REFUSED — the crowd leans {d:.1f}° here, past your gate of "
+                  f"{gate:.1f}° ({skill:.1f}° + 2σ)" for d in demand], dtype=object),
         reason)
     soft = (~gated) & (stop > 0.25)
     reason = np.where(

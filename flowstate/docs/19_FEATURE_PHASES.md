@@ -159,6 +159,17 @@ Alongside `route_a_to_b` / `route_loop`:
 
 ## Phase 5 — integration
 
+> **DONE — doc 24. The backend is finished.**
+> - **Rebuild from the raw lake:** every table identical, except that the 16-char edge table now fills
+>   radius/demand/surprise columns the router does not read.
+> - **Rebake:** 21/21 answers identical to Phase 4. All regression gates pass.
+> - **AppTest sweep:** 23 runs, 0 exceptions.
+> - **Candidate beat:** user C on Lenggries → Bad Tölz reproduces (17% shared).
+> - **Strings fixed:** the refusal reason is now one decimal, the caption gives a true reason, and the
+>   DIAL centroid reads 46.93°N.
+> - **Pitch and demo not rewritten, by the user's decision.** Doc 24 §5 is the measured drift table.
+> - **Front-end contract:** doc 25.
+
 Rebake; AppTest sweep; regression numbers; rewrite `06_PITCH.md` / `10_LIVE_DEMO.md` **only for
 features that passed their test**; CONTEXT + verdicts; merge.
 

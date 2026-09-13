@@ -22,7 +22,7 @@ The build now follows **`FLOWSTATE_Execution_Plan.docx`** (Parts A–E). Phase s
 | 5 rebuild pitch | `docs/06_PITCH.md` + `docs/10_LIVE_DEMO.md` | **DONE** — both rewritten from doc 18, beats verified against the running service |
 | 6 bake + rehearse | `data/cache/demo.pkl` | bake **DONE**; rehearsal not started |
 | + external sources | OSM, not in the original plan | **DONE** |
-| **FEATURES.md build** | phases 0-5 in **doc 19** | **Phases 0-2 DONE** — Joy Meter **WEAK**, grip-budget claim **REJECTED** (doc 20); road character (doc 21): rhythm, reversals, adventure **pass**, hazard **repeatable**, surprise **pass** (both in `explain()` as safety readout), dwell **redundant**, traffic **unreliable**, viewpoints **no data**; default route unchanged. **Phase 3 DONE (doc 22)**: user C is a real second rider (calibrated, not distinguishable in skill, beat 3 unchanged); bike DNA **no structure**; modes scenic + mountain **pass but small** (+1-2 m), adventure **fail**; mood **fail**; rhythm match **not personal**; flow bit-identical. **Phase 4 DONE (doc 23)**: arc loop **fail** (network caps it at 3/12), Pareto frontier **pass but short** (+3.5 min for +0.2 deg), commute **blocked** (no in-box commutes), urban wander **fail**; all baked answers identical; **Phase 5 integration NEXT** |
+| **FEATURES.md build** | phases 0-5 in **doc 19** | **Phases 0-2 DONE** — Joy Meter **WEAK**, grip-budget claim **REJECTED** (doc 20); road character (doc 21): rhythm, reversals, adventure **pass**, hazard **repeatable**, surprise **pass** (both in `explain()` as safety readout), dwell **redundant**, traffic **unreliable**, viewpoints **no data**; default route unchanged. **Phase 3 DONE (doc 22)**: user C is a real second rider (calibrated, not distinguishable in skill, beat 3 unchanged); bike DNA **no structure**; modes scenic + mountain **pass but small** (+1-2 m), adventure **fail**; mood **fail**; rhythm match **not personal**; flow bit-identical. **Phase 4 DONE (doc 23)**: arc loop **fail** (network caps it at 3/12), Pareto frontier **pass but short** (+3.5 min for +0.2 deg), commute **blocked** (no in-box commutes), urban wander **fail**; all baked answers identical. **Phase 5 DONE (doc 24) — BACKEND FINISHED**: full rebuild from the lake identical, 21/21 baked answers identical, all gates pass, AppTest sweep 23 runs / 0 exceptions, user C beat reproduces (17% shared), refusal/caption strings fixed; pitch + demo docs deliberately NOT rewritten (doc 24 §5 lists every drifted number); front-end contract = **doc 25** |
 
 Beyond the plan, also done: `app/service.py` (the API the UI calls),
 `analysis/13_osm_layer.py`, `analysis/14_bake_demo.py`, `run_demo.sh`.
@@ -30,7 +30,7 @@ Beyond the plan, also done: `app/service.py` (the API the UI calls),
 **Phase 1→2→3 is a strict serial chain and is the whole submission.** Phases 0, 3, 5, 6 are
 never to be cut; cut order if short is surprise index, then Phase 4, then peak-end.
 
-**The authoritative record is docs 13-23** (19 = the FEATURES.md phase plan — read it before building anything; 20 = Phase 1 Joy Meter results; 21 = Phase 2 road character columns; 22 = Phase 3 riders and modes; 23 = Phase 4 answer types) — 13 (phases 0-1), 14 (the router), 15 (OSM),
+**The authoritative record is docs 13-25** (19 = the FEATURES.md phase plan — read it before building anything; 20 = Phase 1 Joy Meter results; 21 = Phase 2 road character columns; 22 = Phase 3 riders and modes; 23 = Phase 4 answer types; 24 = Phase 5 integration + the pitch drift table; 25 = the front-end API contract) — 13 (phases 0-1), 14 (the router), 15 (OSM),
 16 (the loop, the API, the bake), 17 (the ROUTE tab), 18 (the pitch audit), 19 (the feature phases). They record what was measured, which plan claims survived
 checking and which did not. Read them before quoting any number.
 
@@ -131,7 +131,7 @@ One curve produces both **Fun Score** and **Rider Safety**.
 **A fresh clone cannot run a demo.** The lake and every derived parquet are gitignored and live
 only on this Mac. `data/cache/demo.pkl` (6.1 MB) is the freeze artefact: scored cells, edges, the
 OSM join, calibrated riders, a 17,345-way offline road basemap, and 21 pre-solved presets.
-`service.init()` loads it in **12 ms**; a dial change costs **20-37 ms**.
+`service.init()` loads it in **12 ms**; a route on a built graph **22 ms**, a dial or rider change **40 ms** (measured Phase 5, doc 24).
 **Rebake after any change to the router, the cell table or the OSM layer:**
 `$V analysis/14_bake_demo.py` (2.4 s).
 
