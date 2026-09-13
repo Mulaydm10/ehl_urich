@@ -180,6 +180,37 @@ class DebugTrail:
         self.dropped = 0
         return {"ok": True, "nextSeq": self.next_seq}
 
+    def telemetry(self) -> dict:
+        """
+        Latest mySPIN vehicle-data value per key, plus what the head unit
+        granted this app. Derived purely from what the phone reported: an empty
+        result means the phone never received vehicle data, never a placeholder.
+        """
+        values: dict[str, dict] = {}
+        access: dict[str, bool] = {}
+        connected = False
+        for ev in self.events:
+            detail = ev.get("detail") or {}
+            op = ev.get("op")
+            if op == "vehicle.data":
+                key = detail.get("key")
+                if key:
+                    values[str(key)] = {"values": detail.get("values"), "at": ev.get("phoneAt") or ev.get("at")}
+            elif op == "myspin.access":
+                key = detail.get("key")
+                if key:
+                    access[str(key)] = bool(detail.get("granted"))
+            elif op == "myspin.connection":
+                connected = bool(detail.get("connected"))
+        return {
+            "ok": True,
+            "connected": connected,
+            "granted": sorted(k for k, v in access.items() if v),
+            "denied": sorted(k for k, v in access.items() if not v),
+            "values": values,
+            "note": "" if values else "No mySPIN vehicle data has been reported by a phone yet.",
+        }
+
 
 # --------------------------------------------------------------------------
 # transports

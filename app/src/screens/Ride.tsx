@@ -5,6 +5,7 @@ import { BikeImage } from '../components/BikeImage'
 import { EmptyState, SectionTitle, Unavailable } from '../components/primitives'
 import { RouteMap } from '../components/RouteMap'
 import { LiveMap } from '../components/LiveMap'
+import { Telemetry } from '../components/Telemetry'
 
 const CONNECTION_LABEL = { connected: 'Connected', last_seen: 'Last seen', phone_only: 'Phone only' } as const
 const ACTIONS = [
@@ -64,6 +65,9 @@ export function RideScreen() {
       {lowFuel ? <div className="notice mt-5 flex items-center gap-3"><Fuel size={17} className="shrink-0" /><p>Low fuel reserve. Your planner includes a fuel stop.</p></div> : null}
       {bike.connection === 'phone_only' ? <div className="pt-5"><Unavailable note="Phone only. Live instruments, service data and TFT handoff are unavailable." /></div> : null}
     </div>
+
+    <SectionTitle title="Live telemetry" subtitle="Speed and lean from the bike when authorised, else the phone" />
+    <Telemetry />
 
     <SectionTitle title="At a glance" subtitle={bikeProfile.tagline} />
     <section className="panel mx-6 grid grid-cols-2 overflow-hidden" aria-label="Motorcycle instruments">

@@ -447,6 +447,12 @@ def bmw_link_debug_clear() -> JSONResponse:
     return ok(LINK.trail.clear())
 
 
+@app.get("/api/bmw/link/telemetry")
+def bmw_link_telemetry() -> JSONResponse:
+    """Latest mySPIN vehicle-data per key + granted/denied keys the phone saw."""
+    return ok(LINK.trail.telemetry())
+
+
 # --------------------------------------------------------------------------
 # BMW rides + live recording
 # --------------------------------------------------------------------------

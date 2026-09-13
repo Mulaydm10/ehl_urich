@@ -4,6 +4,7 @@ import { useAppState } from '../state/AppState'
 import { StatusLed } from './Cluster'
 import { Feedback, GhostButton, Unavailable } from './primitives'
 import { BikeLinkLog } from './BikeLinkLog'
+import { MySpinPanel } from './MySpinPanel'
 import { resolveBikeLink } from '../services/bikeLink'
 import type { BikeLinkClient, LinkCapabilities, LinkStatus } from '../services/bikeLink'
 
@@ -130,6 +131,8 @@ export function BikeLinkPanel({ compact = false }: { compact?: boolean }) {
       ) : connection.scanning ? <p className="caption">Scanning… no devices found yet.</p> : null}
 
       {note ? <Feedback tone={note.tone}>{note.text}</Feedback> : null}
+
+      {!compact ? <div className="border-t border-white/[0.065] pt-4"><MySpinPanel /></div> : null}
 
       {!compact ? (
         <div className="space-y-3">
