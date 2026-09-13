@@ -239,7 +239,10 @@ class BmwCloud:
             "avgSpeedKmh": round(sum(speeds) / len(speeds)), "topSpeedKmh": max(speeds),
             "maxLeanLeftDeg": rec["maxLeanLeftDeg"], "maxLeanRightDeg": rec["maxLeanRightDeg"],
             "ascentM": 0, "curvinessScore": 0,
-            "path": [{"lat": s["lat"], "lng": s["lng"]} for s in rec["samples"] if "lat" in s],
+            # one malformed sample must not lose the whole ride: accept lng or lon,
+            # skip samples with no position
+            "path": [{"lat": s["lat"], "lng": s.get("lng", s.get("lon"))} for s in rec["samples"]
+                     if "lat" in s and ("lng" in s or "lon" in s)],
             "samples": rec["samples"], "photos": [],
         }
         self.rides.insert(0, ride)

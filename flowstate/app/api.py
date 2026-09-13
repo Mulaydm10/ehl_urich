@@ -50,6 +50,10 @@ else:
         ENGINE = _svc
         ENGINE_KIND = "service"
     except Exception as exc:  # noqa: BLE001 - any load failure => usable mock
+        # On the demo Mac a mock must never stand in for the real engine: its
+        # numbers match doc 25, so a silent fallback would look real on stage.
+        if os.environ.get("FLOWSTATE_REQUIRE_REAL") == "1":
+            raise
         import flowstate_mock as ENGINE  # type: ignore
         ENGINE_KIND = f"mock (service unavailable: {type(exc).__name__})"
 

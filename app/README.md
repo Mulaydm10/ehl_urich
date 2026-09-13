@@ -25,12 +25,17 @@ The FastAPI wrapper lives in `../flowstate/app/api.py`.
 
 ```bash
 cd ../flowstate
-# Deterministic mock (no NDA data bake required):
-FLOWSTATE_MOCK=1 python3 -m uvicorn api:app --app-dir app --host 0.0.0.0 --port 8090
-# Real engine (on the Mac that has the NDA data bake): omit FLOWSTATE_MOCK.
+# Deterministic mock, on a dev box with no NDA data bake:
+FLOWSTATE_MOCK=1 python3 -m uvicorn api:app --app-dir app --host 127.0.0.1 --port 8090
+# Real engine, on the Mac that has the bake — binds the tailnet address only and
+# refuses to start on the mock:
+./run_api.sh
 ```
 
-Bind to `0.0.0.0` so the phone can reach it over Tailscale.
+**Never bind `0.0.0.0` and never use `tailscale funnel` / `serve --funnel`.** On a
+conference network the Mac also holds a public address, and the engine serves
+NDA-derived data. The phone reaches `run_api.sh`'s tailnet address as long as it is
+signed in to the same tailnet.
 
 ## Run the frontend (dev)
 

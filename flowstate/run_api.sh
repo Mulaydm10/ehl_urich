@@ -8,6 +8,9 @@ cd "$(dirname "$0")"
 V="${FS_PY:-/Users/mulaydm10/ehl_urich/.venv/bin/python}"
 ADDR="${FS_ADDR:-100.80.210.100}"          # this Mac on the tailnet
 PORT="${FS_PORT:-8090}"
+# This script is the Mac/demo launcher: refuse to start rather than fall back to
+# the mock engine. FLOWSTATE_MOCK=1 still forces the mock explicitly.
+export FLOWSTATE_REQUIRE_REAL="${FLOWSTATE_REQUIRE_REAL:-1}"
 
 case "${1:-}" in
   --lan)   ADDR=$(ipconfig getifaddr en0 || echo 127.0.0.1) ;;
