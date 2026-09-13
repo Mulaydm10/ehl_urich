@@ -6,6 +6,9 @@ import { Chip, Feedback, GhostButton, PageHeader, PlannerSwitch, PrimaryButton, 
 import { takePendingPlan } from '../services/assistant'
 import { setActiveRoute } from '../services/copilot'
 import { fitFor } from '../domain/bikeFit'
+import { dialFor, explain, modeKeyFor } from '../domain/ridePreference'
+import { getPreference, subscribePreference } from '../services/ridePreference'
+import type { RidePreference } from '../domain/ridePreference'
 import { useAppState } from '../state/AppState'
 import { flowstate } from '../services/flowstate'
 import type {
@@ -120,6 +123,11 @@ export function ThrillScreen() {
 
   const fit = fitFor(bike)
   const fitApplied = !!fit && dial === fit.dial && mode === fit.mode
+
+  const [pref, setPref] = useState<RidePreference | null>(() => getPreference())
+  useEffect(() => subscribePreference(setPref), [])
+  const prefMode = pref ? (modeKeyFor(pref) ?? 'flow') : null
+  const prefApplied = !!pref && mode === prefMode && dial === dialFor(pref)
 
   const [busy, setBusy] = useState(false)
   const [comparison, setComparison] = useState<FsCompareResult | null>(null)
@@ -341,6 +349,17 @@ export function ThrillScreen() {
             {modes.map((m) => (
               <Chip key={m.key} active={m.key === mode} onClick={() => setMode(m.key)}>{m.key}</Chip>
             ))}
+            {pref && prefMode ? (
+              <Chip
+                active={mode === prefMode}
+                onClick={() => {
+                  setMode(prefMode)
+                  setDial(dialFor(pref))
+                }}
+              >
+                yours
+              </Chip>
+            ) : null}
           </div>
           {mode === 'mountain' ? (
             <p className="caption mt-3 px-6">
@@ -349,6 +368,35 @@ export function ThrillScreen() {
           ) : null}
         </>
       ) : null}
+
+      <div className="panel mx-6 mt-4 p-4">
+        <div className="label">Your ride profile</div>
+        {pref ? (
+          <>
+            <ul className="mt-2 space-y-1.5">
+              {explain(pref).map((line) => (
+                <li key={line} className="caption leading-relaxed">{line}</li>
+              ))}
+            </ul>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Chip active={prefApplied} onClick={() => { setMode(prefMode ?? 'flow'); setDial(dialFor(pref)) }}>
+                {prefApplied ? 'Applied' : 'Plan with it'}
+              </Chip>
+              <Link to="/ride-profile" className="chip" data-active={false}>Change answers</Link>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="caption mt-2">
+              Answer five questions — how hard, how many corners, how high, how busy, scenic or a
+              challenge — and the route is weighted on exactly those columns instead of a preset.
+            </p>
+            <Link to="/ride-profile" className="chip mt-3 inline-flex" data-active={false}>
+              Set it up
+            </Link>
+          </>
+        )}
+      </div>
 
       <div className="space-y-3 px-6 py-6">
         <PrimaryButton onClick={runPlan} busy={busy} disabled={busy}>

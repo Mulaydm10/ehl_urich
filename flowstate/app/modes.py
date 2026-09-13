@@ -55,7 +55,54 @@ MODE_TARGET = {"scenic": ("elev_prominence_m", +1), "adventure": ("n_rides", -1)
 ARCHETYPE_MODE = {"sport": "flow", "adventure": "adventure", "tour": "scenic"}
 
 
+# --------------------------------------------------------------------------
+# a rider's own mode
+# --------------------------------------------------------------------------
+#
+# The named modes above are the tested presets. A rider who answers "more
+# switchbacks, higher up, roads nobody rides" is asking for a weight vector
+# that is not in the table, so one is built from the answers: same columns,
+# same [0, MODE_ALPHA] penalty, same refusal to touch flow or the gate. Only
+# columns that passed doc 21 may appear, so an answer can never smuggle in a
+# measure the analysis rejected, and the spec is a deterministic string so it
+# still keys the graph cache.
+#
+#     "custom:reversals_km=+1,elev_mean=+2"
+
+CUSTOM_PREFIX = "custom:"
+CUSTOM_COLUMNS = frozenset().union(*(m.keys() for m in MODES.values()))
+CUSTOM_MAX_TERMS = 4
+CUSTOM_MAX_WEIGHT = 2.0
+
+
+def custom_columns(spec: str) -> dict:
+    """Parse a `custom:` mode key into a weight vector, or raise."""
+    body = spec[len(CUSTOM_PREFIX):].strip()
+    out: dict[str, float] = {}
+    for term in (t for t in body.split(",") if t.strip()):
+        col, _, raw = term.partition("=")
+        col = col.strip()
+        if col not in CUSTOM_COLUMNS:
+            raise ValueError(f"column {col!r} is not one the mode scan passed; "
+                             f"one of {sorted(CUSTOM_COLUMNS)}")
+        try:
+            weight = float(raw)
+        except ValueError as exc:
+            raise ValueError(f"weight {raw!r} for {col!r} is not a number") from exc
+        if not -CUSTOM_MAX_WEIGHT <= weight <= CUSTOM_MAX_WEIGHT or weight == 0.0:
+            raise ValueError(f"weight {weight} for {col!r} outside "
+                             f"[-{CUSTOM_MAX_WEIGHT}, {CUSTOM_MAX_WEIGHT}] or zero")
+        out[col] = weight
+    if not out:
+        raise ValueError("a custom mode needs at least one column")
+    if len(out) > CUSTOM_MAX_TERMS:
+        raise ValueError(f"at most {CUSTOM_MAX_TERMS} columns in a custom mode")
+    return out
+
+
 def mode_columns(mode: str) -> dict:
+    if isinstance(mode, str) and mode.startswith(CUSTOM_PREFIX):
+        return custom_columns(mode)
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode!r}; one of {sorted(MODES)}")
     return MODES[mode]

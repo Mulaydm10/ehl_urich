@@ -22,6 +22,9 @@ import { http } from '../services/http'
 import { realtimeSupported, startRealtime, type RealtimeHandle, type RealtimeState } from '../services/realtime'
 import { getAssistantStatus, type AssistantStatus } from '../services/assistant'
 import { DIAL_Z, fitFor } from '../domain/bikeFit'
+import { dialFor, modeKeyFor } from '../domain/ridePreference'
+import { getPreference, subscribePreference } from '../services/ridePreference'
+import type { RidePreference } from '../domain/ridePreference'
 
 /**
  * Navigate: the screen for a rider who is moving and cannot touch anything.
@@ -74,9 +77,13 @@ export function NavigateScreen() {
   // The bike shapes what a re-plan asks for: the dial and mode its character
   // suits. It cannot touch the safety gate, which is the rider's own.
   const fit = fitFor(bike)
+  // The rider's own answers outrank the bike preset when they exist: they are
+  // what he said, not what his model implies.
+  const [pref, setPref] = useState<RidePreference | null>(() => getPreference())
+  useEffect(() => subscribePreference(setPref), [])
   const { state, position, route, suggestion, why, accept, dismiss } = useCopilot(on, {
-    thrill: fit ? DIAL_Z[fit.dial] : 0.5,
-    mode: fit?.mode ?? 'flow',
+    thrill: pref ? DIAL_Z[dialFor(pref)] : fit ? DIAL_Z[fit.dial] : 0.5,
+    mode: pref ? (modeKeyFor(pref) ?? 'flow') : (fit?.mode ?? 'flow'),
     bikeId: bike?.id ?? null,
   })
 
@@ -293,7 +300,12 @@ export function NavigateScreen() {
           label="Riding time"
         />
       </section>
-      {fit && bike ? (
+      {pref ? (
+        <p className="caption mx-6 mt-2">
+          Following your ride profile — {dialFor(pref).toLowerCase()} dial, weighted on{' '}
+          {(modeKeyFor(pref) ?? 'flow').replace('custom:', '')}. Your safety gate is unchanged.
+        </p>
+      ) : fit && bike ? (
         <p className="caption mx-6 mt-2">
           Tuned for the {bike.model} — {fit.dial.toLowerCase()} dial, {fit.mode} mode. Bike preset,
           not bike data; your safety gate is unchanged.
