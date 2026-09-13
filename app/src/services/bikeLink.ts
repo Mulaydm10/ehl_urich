@@ -282,10 +282,41 @@ export function makeNativeLink(online: () => boolean): BikeLinkClient {
   const log = new TraceLog(online, true)
   let listening = false
 
-  const report = async (body: Record<string, unknown>) => {
-    if (!online()) return
+  // Every BLE advertisement re-renders the panel, and each render used to post a
+  // full report: ~19 POSTs a second in a busy room, which flooded the backend
+  // trail. Reports now go out only when their content changes (RSSI ignored),
+  // at most one per REPORT_MIN_MS; transfer outcomes always go out at once.
+  const REPORT_MIN_MS = 2000
+  let lastSig = ''
+  let lastSentAt = 0
+  let pending: Record<string, unknown> | null = null
+  let reportTimer: ReturnType<typeof setTimeout> | null = null
+  const sigOf = (body: Record<string, unknown>) =>
+    JSON.stringify(body, (k, v) => (k === 'rssi' || k === 'reportedAt' ? undefined : v))
+  const send = async (body: Record<string, unknown>) => {
+    lastSentAt = Date.now()
     try { await post('/native/report', body) } catch { /* backend mirror is best-effort */ }
   }
+  const report = async (body: Record<string, unknown>) => {
+    if (!online()) return
+    if ('transfer' in body) { await send(body); return }
+    const sig = sigOf(body)
+    if (sig === lastSig) return
+    lastSig = sig
+    const wait = REPORT_MIN_MS - (Date.now() - lastSentAt)
+    if (wait <= 0) { await send(body); return }
+    pending = body
+    if (!reportTimer) {
+      reportTimer = setTimeout(() => {
+        reportTimer = null
+        const b = pending
+        pending = null
+        if (b) void send(b)
+      }, wait)
+    }
+  }
+  // Only devices worth mirroring: a busy room has hundreds of unnamed advertisers.
+  const relevant = (d: LinkDevice) => Boolean(d.icc || d.paired || (d.name && !d.name.startsWith('Unnamed')))
 
   const listen = async () => {
     if (listening) return
@@ -300,9 +331,13 @@ export function makeNativeLink(online: () => boolean): BikeLinkClient {
     await listen()
     const [adapter, connection] = await Promise.all([Native.getAdapterState(), Native.getConnectionState()])
     const list = [...devices.values()]
-    void report({ adapter, connection, devices: list })
+    void report({ adapter, connection, devices: list.filter(relevant) })
     return { transport: 'native_ble', standIn: false, adapter, connection, devices: list }
   }
+
+  // A BLE scan is a battery-heavy radio sweep; stop it on its own after SCAN_MS.
+  const SCAN_MS = 15000
+  let scanTimer: ReturnType<typeof setTimeout> | null = null
 
   const unsupported = (what: string) => {
     throw new Error(`${what} is not part of the verified bike protocol yet. Pair from Android Bluetooth settings.`)
@@ -320,7 +355,15 @@ export function makeNativeLink(online: () => boolean): BikeLinkClient {
     requestPermissions: async () => (await Native.requestBluetoothPermissions()).granted,
     scan: async (active) => {
       await listen()
-      if (active) { devices.clear(); await Native.startScan() } else await Native.stopScan()
+      if (scanTimer) { clearTimeout(scanTimer); scanTimer = null }
+      if (active) {
+        devices.clear()
+        await Native.startScan()
+        scanTimer = setTimeout(() => {
+          scanTimer = null
+          void Native.stopScan().then(() => ev.emit()).catch(() => undefined)
+        }, SCAN_MS)
+      } else await Native.stopScan()
       ev.emit()
       return status()
     },

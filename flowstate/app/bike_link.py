@@ -39,6 +39,7 @@ bike can be watched live from here instead of guessed.
 
 from __future__ import annotations
 
+import json
 import os
 import time
 import uuid
@@ -443,6 +444,7 @@ class BikeLink:
             NativeBleTransport(cloud) if kind in ("native", "native_ble", "ble") else StandInTransport(cloud)
         )
         self.trail = DebugTrail()
+        self._last_report_sig: str | None = None   # identical repeat reports are not re-logged
         self.trail.add("backend", "link.init", transportKind=self.transport.kind,
                        standIn=self.transport.stand_in)
 
@@ -479,10 +481,17 @@ class BikeLink:
 
     def report(self, rep: dict) -> dict:
         tx = rep.get("transfer") if isinstance(rep.get("transfer"), dict) else None
-        self.trail.add("phone", "report", level="warn" if tx and not tx.get("ok") else "info",
-                       connection=rep.get("connection"), adapter=rep.get("adapter"),
-                       deviceCount=len(rep["devices"]) if isinstance(rep.get("devices"), list) else None,
-                       transfer=tx)
+        count = len(rep["devices"]) if isinstance(rep.get("devices"), list) else None
+        # A phone mid-scan can repeat the same report many times a second; log a
+        # report only when what it says changed, so real events are not buried.
+        # Transfer outcomes are always logged.
+        sig = json.dumps({"c": rep.get("connection"), "a": rep.get("adapter"), "n": count},
+                         sort_keys=True, default=str)
+        if tx or sig != self._last_report_sig:
+            self._last_report_sig = sig
+            self.trail.add("phone", "report", level="warn" if tx and not tx.get("ok") else "info",
+                           connection=rep.get("connection"), adapter=rep.get("adapter"),
+                           deviceCount=count, transfer=tx)
         if isinstance(self.transport, NativeBleTransport):
             return self.transport.report(rep)
         return {"ok": False, "standIn": True,

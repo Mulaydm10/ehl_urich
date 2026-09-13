@@ -60,6 +60,15 @@ export function BikeLinkPanel({ compact = false }: { compact?: boolean }) {
   if (!status) return <div className="notice caption">{error ?? 'Checking bike link…'}</div>
 
   const { adapter, connection, devices } = status
+  // A busy room holds hundreds of anonymous BLE advertisers (phones, earbuds,
+  // speakers). Show only what can matter for the bike: BMW head-unit candidates,
+  // paired devices and named devices, strongest signal first.
+  const shown = devices
+    .filter((d) => d.icc || d.paired || d.standIn || (d.name && !d.name.startsWith('Unnamed')))
+    .sort((a, b) => Number(Boolean(b.icc)) - Number(Boolean(a.icc))
+      || Number(Boolean(b.paired)) - Number(Boolean(a.paired))
+      || (b.rssi ?? -999) - (a.rssi ?? -999))
+  const hidden = devices.length - shown.length
   const connected = connection.state === 'connected'
   const noRadio = adapter.present === false
   const standIn = status.standIn
@@ -111,9 +120,9 @@ export function BikeLinkPanel({ compact = false }: { compact?: boolean }) {
         </div>
       ) : null}
 
-      {devices.length ? (
+      {shown.length ? (
         <div className="data-list">
-          {devices.map((d) => (
+          {shown.map((d) => (
             <div key={d.id} className="data-list-row">
               <div className="min-w-0"><div className="text-[14px] font-medium">{d.name}{d.icc ? <span className="caption ml-2">BMW head unit?</span> : null}</div><p className="caption mt-0.5">{d.rssi != null ? `${d.rssi} dBm · ` : ''}{d.kind === 'classic' ? 'Bluetooth Classic · ' : ''}{d.paired ? 'Paired' : 'Not paired'}{d.standIn ? ' · stand-in' : ''}{d.iccReason ? ` · matched by ${d.iccReason === 'sdp_uuid' ? 'SDP UUID' : 'name'}` : ''}</p></div>
               <div className="flex shrink-0 gap-2">
@@ -128,7 +137,13 @@ export function BikeLinkPanel({ compact = false }: { compact?: boolean }) {
             </div>
           ))}
         </div>
-      ) : connection.scanning ? <p className="caption">Scanning… no devices found yet.</p> : null}
+      ) : connection.scanning ? <p className="caption">Scanning… no named devices found yet.</p> : null}
+      {hidden > 0 ? (
+        <p className="caption">
+          {hidden} unnamed nearby device{hidden === 1 ? '' : 's'} hidden. The bike&apos;s TFT does not show up in this
+          scan — it pairs over Bluetooth Classic: pair it in Android Bluetooth settings, then tap List paired devices.
+        </p>
+      ) : null}
 
       {note ? <Feedback tone={note.tone}>{note.text}</Feedback> : null}
 
