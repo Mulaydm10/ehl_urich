@@ -27,7 +27,8 @@ const TRIGGER: Record<string, string> = {
   voice: 'by voice',
   typed: 'by typing',
   chip: 'by a tap on the phone',
-  ask: 'by typing',
+  // 'ask'/'tool' are callers that did not say how the rider asked.
+  ask: 'from the phone',
   tool: 'from the phone',
 }
 const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms))

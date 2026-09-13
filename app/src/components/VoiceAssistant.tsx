@@ -162,7 +162,7 @@ export function VoiceAssistant() {
         online,
         engine,
         ride: rideContext(),
-      })
+      }, via === 'voice' ? 'voice' : 'typed')
       setThinking(false)
       if (!answer) {
         setCloudFailed(true)

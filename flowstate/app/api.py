@@ -189,6 +189,9 @@ class LinkDebugReq(BaseModel):
 
 class AssistantReq(BaseModel):
     text: str
+    # How the rider said it: dictated to the phone, or typed. Callers that do
+    # not say stay "ask", which is only "from the phone" to anything watching.
+    source: str | None = None
     context: dict | None = None
 
 
@@ -297,7 +300,8 @@ def assistant_status() -> JSONResponse:
 
 @app.post("/api/assistant")
 def assistant_ask(req: AssistantReq) -> JSONResponse:
-    res = ASSISTANT.ask(req.text, req.context)
+    source = req.source if req.source in SOURCES else "ask"
+    res = ASSISTANT.ask(req.text, req.context, source=source)
     FEED.said(live_feed_mod.rider_of((req.context or {}).get("ride")), req.text,
               str(res.get("say") or ""), list(res.get("tools_used") or []), bool(res.get("ok")))
     return JSONResponse(_clean(res), status_code=200 if res.get("ok") else 503)

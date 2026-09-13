@@ -1104,7 +1104,8 @@ class Assistant:
         with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
             return json.loads(resp.read().decode())
 
-    def ask(self, text: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
+    def ask(self, text: str, context: dict[str, Any] | None = None,
+            source: str = "ask") -> dict[str, Any]:
         key = self.api_key()
         if not key:
             return {"ok": False, "error": "no_key",
@@ -1165,7 +1166,7 @@ class Assistant:
                         result = handler(args)
                     except Exception as exc:  # noqa: BLE001 - report, don't crash the turn
                         result = {"error": f"{type(exc).__name__}: {exc}"}
-                self._notify(name, args, ride, result, "ask")
+                self._notify(name, args, ride, result, source)
                 used.append(name)
                 actions.extend(_actions_for(name, result))
                 messages.append({

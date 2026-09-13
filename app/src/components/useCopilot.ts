@@ -85,7 +85,15 @@ export function useCopilot(
     opt.current = opts
   })
 
-  useEffect(() => subscribeActiveRoute(setRoute), [])
+  // A new plan makes the last tick stale: the phone is on a different road,
+  // with a different distance left, and anything following this ride would
+  // keep showing the old one until the heartbeat came round. So a re-plan
+  // clears the throttle and the next tick goes out at once.
+  useEffect(() => subscribeActiveRoute((r) => {
+    setRoute(r)
+    lastSentAt.current = 0
+    lastSentAtPos.current = null
+  }), [])
 
   // A fix stops being where the bike is long before the watch reports an
   // error. Nothing downstream — figures on screen, ticks, the assistant's
@@ -169,7 +177,7 @@ export function useCopilot(
         inFlight.current = false
       }
     })()
-  }, [enabled, position, session])
+  }, [enabled, position, session, route])
 
   const dismiss = useCallback(() => {
     const current = suggestion

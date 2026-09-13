@@ -88,9 +88,10 @@ interface RawReply {
 export async function askAssistant(
   text: string,
   context: Record<string, unknown>,
+  source: 'voice' | 'typed' = 'typed',
 ): Promise<AssistantReply | null> {
   try {
-    const raw = await http.post<RawReply>('/api/assistant', { text, context }, 45000)
+    const raw = await http.post<RawReply>('/api/assistant', { text, source, context }, 45000)
     if (!raw.ok || !raw.say) return null
     return {
       ok: true,
