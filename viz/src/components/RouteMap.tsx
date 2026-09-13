@@ -1,16 +1,75 @@
 import L from 'leaflet'
-import { useEffect, useMemo, useRef } from 'react'
-import { MapContainer, Marker, Polyline, ScaleControl, TileLayer, Tooltip, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
+import { Layers, Mountain, Moon, Satellite } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { MapContainer, Marker, Pane, Polyline, ScaleControl, TileLayer, Tooltip, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
 import type { Candidate, LonLat, Plan, Refusal } from '../lib/api'
 import { toLatLng } from '../lib/geo'
 
-// Esri dark canvas (same base as the phone app) plus its reference layer, which
-// adds road numbers and place labels. Both are keyless; CARTO's Dark Matter
-// now watermarks tiles served without an API key, so it is not used.
-const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas'
-const DARK = `${ESRI}/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`
-const DARK_LABELS = `${ESRI}/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}`
-const DARK_ATTR = 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
+// All keyless Esri services (CARTO's Dark Matter now watermarks tiles served
+// without an API key). Each style is a stack: relief/imagery, then labels.
+const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services'
+const tile = (svc: string) => `${ESRI}/${svc}/MapServer/tile/{z}/{y}/{x}`
+const ATTR = 'Tiles &copy; Esri &mdash; Esri, Maxar, Earthstar Geographics, DeLorme, NAVTEQ'
+
+export type Basemap = 'terrain' | 'dark' | 'satellite'
+interface Layer { url: string; opacity?: number; className?: string; maxZoom: number }
+const STYLES: Record<Basemap, { label: string; icon: typeof Mountain; layers: Layer[] }> = {
+  terrain: {
+    label: 'Terrain', icon: Mountain,
+    layers: [
+      { url: tile('Elevation/World_Hillshade_Dark'), maxZoom: 16, className: 'tile-relief' },
+      { url: tile('Canvas/World_Dark_Gray_Base'), maxZoom: 16, opacity: 0.55, className: 'tile-roads' },
+      { url: tile('Canvas/World_Dark_Gray_Reference'), maxZoom: 16, className: 'tile-labels' },
+    ],
+  },
+  dark: {
+    label: 'Dark', icon: Moon,
+    layers: [
+      { url: tile('Canvas/World_Dark_Gray_Base'), maxZoom: 16 },
+      { url: tile('Canvas/World_Dark_Gray_Reference'), maxZoom: 16 },
+    ],
+  },
+  satellite: {
+    label: 'Satellite', icon: Satellite,
+    layers: [
+      { url: tile('World_Imagery'), maxZoom: 18, className: 'tile-imagery' },
+      { url: tile('Reference/World_Transportation'), maxZoom: 18, opacity: 0.7 },
+      { url: tile('Reference/World_Boundaries_and_Places'), maxZoom: 18 },
+    ],
+  },
+}
+
+function BasemapPicker({ value, onChange }: { value: Basemap; onChange: (b: Basemap) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (ref.current) { L.DomEvent.disableClickPropagation(ref.current); L.DomEvent.disableScrollPropagation(ref.current) }
+  }, [])
+  return (
+    <div className="leaflet-top leaflet-left pointer-events-none" style={{ top: 10, left: 10 }}>
+      <div className="leaflet-control pointer-events-auto">
+        <div ref={ref} className="basemap-picker" onMouseLeave={() => setOpen(false)}>
+          <button type="button" className="basemap-btn" onClick={() => setOpen((o) => !o)} title="Basemap">
+            <Layers size={14} /> <span>{STYLES[value].label}</span>
+          </button>
+          {open ? (
+            <div className="basemap-menu">
+              {(Object.keys(STYLES) as Basemap[]).map((k) => {
+                const Icon = STYLES[k].icon
+                return (
+                  <button type="button" key={k} className={`basemap-item ${k === value ? 'is-on' : ''}`}
+                    onClick={() => { onChange(k); setOpen(false) }}>
+                    <Icon size={13} /> {STYLES[k].label}
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export const CAND_COLORS = ['#F5A524', '#3ED598', '#C77DFF', '#6DB6E8', '#FF7A59', '#FFD166']
 
@@ -86,6 +145,8 @@ export interface RouteMapProps {
 }
 
 export default function RouteMap(p: RouteMapProps) {
+  const [basemap, setBasemap] = useState<Basemap>('terrain')
+  const style = STYLES[basemap]
   const bounds = useMemo(() => {
     const pts: [number, number][] = []
     if (p.active?.path?.length) pts.push(...p.active.path.map(toLatLng))
@@ -115,8 +176,12 @@ export default function RouteMap(p: RouteMapProps) {
 
   return (
     <MapContainer center={[47.7, 11.3]} zoom={9} className="h-full w-full" zoomControl={false} attributionControl>
-      <TileLayer url={DARK} attribution={DARK_ATTR} maxZoom={16} />
-        <TileLayer url={DARK_LABELS} maxZoom={16} />
+      {style.layers.map((l, i) => (
+        <TileLayer key={`${basemap}-${i}`} url={l.url} attribution={i === 0 ? ATTR : undefined}
+          maxZoom={l.maxZoom} opacity={l.opacity ?? 1} className={l.className} />
+      ))}
+      <BasemapPicker value={basemap} onChange={setBasemap} />
+      <div className="map-vignette" />
       <ZoomControl position="topright" />
       <ScaleControl position="topright" imperial={false} />
       <Polyline positions={coverageRect} pathOptions={{ color: '#6DB6E8', weight: 1, opacity: 0.3, dashArray: '4 8' }} />
@@ -130,6 +195,12 @@ export default function RouteMap(p: RouteMapProps) {
           <DrawOnLine path={p.active.path} color="#1C69D4" weight={5} opacity={p.candidates.length ? 0.5 : 0.95} animate>
             <Tooltip sticky>active route</Tooltip>
           </DrawOnLine>
+          {!p.candidates.length ? (
+            <Pane name="flow" style={{ zIndex: 450 }}>
+              <Polyline positions={p.active.path.map(toLatLng)} className="flow-line"
+                pathOptions={{ color: '#BFD9FF', weight: 2, opacity: 0.9, dashArray: '2 14', lineCap: 'round', interactive: false }} />
+            </Pane>
+          ) : null}
           {ridden.length > 1 ? (
             <Polyline positions={ridden.map(toLatLng)}
               pathOptions={{ color: '#F1F2F3', weight: 5, opacity: p.candidates.length ? 0.35 : 0.85, lineCap: 'round', lineJoin: 'round', interactive: false }} />
