@@ -1,0 +1,31 @@
+Continue the BMW Motorrad FLOWSTATE build. Read in order: CONTEXT.md,
+flowstate/docs/19_FEATURE_PHASES.md (the phase plan - operative), flowstate/docs/20_PHASE1_JOY_METER.md,
+flowstate/docs/14_PHASE2_ROUTER.md. Current as of 0586d58; they override memory.
+
+Work on the Mac: `ssh macmini`, repo ~/ehl_urich. Venv COMPULSORY by absolute path:
+/Users/mulaydm10/ehl_urich/.venv/bin/python. Write scripts locally in the scratchpad and scp
+them; never inline heredocs over ssh. Validate EVERYTHING on real data by running it, never by
+reading code. Do not think about the deadline - order is by dependency, nothing cut for time.
+
+DO PHASE 2 of doc 19 - road character columns. All new per-cell columns go in
+analysis/10_crowd_layer.py (~14 s rebuild, both _s2 and _c16), read by router.score_cells.
+Scoring only: the DEFAULT route must not change. Items: dwell_share (missing today, router.py
+says so), cell-level reversals/km (MASK OSM residential cells first - doc 20 found reversals
+flip sign between riders), F2.5 FFT rhythm (lean resampled every 10 m by distance), F2.7
+adventure index, F2.8 crowd-mined viewpoints (mask zero elevation, 46-51% of it; validate
+against OSM tourism=viewpoint via a cached Overpass fetch following 13_osm_layer.py - no BMW
+data transmitted), F2.9 traffic-on-good-roads, F2.3 hazard + F2.10 surprise wired as SAFETY
+readout in explain() only, F2.4 gems exposed as a loop candidate pool. Pre-register each
+validation threshold in the script before running it; record fails as fails.
+
+Every phase ends with: regression gate (Lenggries->Bad Tolz headline "Same two points. 1.13x
+the distance, 83% of it on different roads, +2.7 deg more lean asked of you."; Kochel->Tegernsee
+overlap 0.848; Kochel 2 h loop Send it 133.4 km / 118.7 min / 0.936 distinct), rebake
+analysis/14_bake_demo.py, service.init() from bake, AppTest 0 exceptions, doc 21 + verdict rows
+(next id F108) + CONTEXT + doc 19 status, then merge: commit on Linux, push, on the Mac compare
+git hash-object of any scp'd file to origin/main before discarding it, git pull --ff-only,
+both at the same hash. Then tell me and give the next /compact + post-compact prompt.
+
+---
+
+also oneq the data given by organisers of bmw how are we using it , are we traininga model on it or whats the scenes
