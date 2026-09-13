@@ -1,7 +1,6 @@
 # 30 — The live co-pilot: rerouting while the ride is happening
 
-Status: built, not shipped. Local branch only, deliberately unpushed until
-after the bike test.
+Status: built and shipped.
 
 Everything the assistant did until now was reactive: the rider asks, the model
 plans. This adds the other half — the app watching the ride and speaking first.
