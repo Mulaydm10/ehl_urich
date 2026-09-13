@@ -30,7 +30,7 @@ Beyond the plan, also done: `app/service.py` (the API the UI calls),
 **Phase 1→2→3 is a strict serial chain and is the whole submission.** Phases 0, 3, 5, 6 are
 never to be cut; cut order if short is surprise index, then Phase 4, then peak-end.
 
-**The authoritative record is docs 13-25** (19 = the FEATURES.md phase plan — read it before building anything; 20 = Phase 1 Joy Meter results; 21 = Phase 2 road character columns; 22 = Phase 3 riders and modes; 23 = Phase 4 answer types; 24 = Phase 5 integration + the pitch drift table; 25 = the front-end API contract) — 13 (phases 0-1), 14 (the router), 15 (OSM),
+**The authoritative record is docs 13-25** (19 = the FEATURES.md phase plan — read it before building anything; 20 = Phase 1 Joy Meter results; 21 = Phase 2 road character columns; 22 = Phase 3 riders and modes; 23 = Phase 4 answer types; 24 = Phase 5 integration + the pitch drift table; 25 = the front-end API contract; 26 = the from-scratch prompt for a front-end AI) — 13 (phases 0-1), 14 (the router), 15 (OSM),
 16 (the loop, the API, the bake), 17 (the ROUTE tab), 18 (the pitch audit), 19 (the feature phases). They record what was measured, which plan claims survived
 checking and which did not. Read them before quoting any number.
 
@@ -73,8 +73,8 @@ One curve produces both **Fun Score** and **Rider Safety**.
 
 ## Validated (and not)
 
-- Physics bridge **corr 0.73** over 5,747 corners, EIV slope 1.08 — solid.
-- Crowd-scale risk: braking cells demand 13.3° vs 12.5°, **p = 4.9e-3, n = 6,912** — solid.
+- Physics bridge **corr 0.73** over 5,747 corners (0.765 over 5,253) — solid. **The EIV slope 1.08 is POINT-level** (244,363 trackpoints, raw heading, r 0.602); at corner level it is 0.785 / 0.731. Never pair 1.08 with the corner correlation (re-validated, doc 24 §5).
+- Crowd-scale risk: braking cells demand 13.3° vs 12.5°, **p = 4.6e-3, n = 6,895** (re-validated on the rebuilt grid) — solid.
 - Rider-level risk 3.6× but **13 events, p = 0.071, CI [0, 17.1]** — weak; the pitch states this openly.
 - ⛔ **Left/right asymmetry was tested and REJECTED** (2 riders, ~21k corners). Pitch slide 2 is dead.
 
@@ -123,7 +123,7 @@ One curve produces both **Fun Score** and **Rider Safety**.
   **Kochel -> Tegernsee the gate bites**: userA vs bike_4e1a9d64 share 73% of cells at Cruise and
   only **10% at Send it**, with 3-5 roads refused outright. Demo the rider switch there. See doc 17.
 - **Weather stays dropped, and the cold-grip idea did NOT replicate**: spearman(lean, temp)
-  = −0.016 over 5,253 corners; per-trip +0.224 at p=0.24 over 29 trips. `mu_for_temp` ships as a
+  = −0.016 over 5,253 corners (re-validated); the old "per-trip +0.224 at p=0.24 over 29 trips" does NOT reproduce — per-trip ρ is −0.07..+0.05 at every cut (doc 24 §5). `mu_for_temp` ships as a
   labelled engineering assumption feeding the safety readout only, never the fun score.
 
 ## The demo runs off a bake, not the repo

@@ -149,15 +149,22 @@ These docs were **not** edited, by decision. Every row below was re-measured in 
 | THRILL DIAL centroid "46.88°N at Send it" | 10 §2, §5 | **46.93°N** | AppTest `DIAL z*=0.9` |
 | "ABS is orthogonal to cornering demand (ρ = +0.05)" | 10 §4 | this rebuild prints ρ(abs rate, demand_p90) **+0.022** (16-char) / **+0.035** (18-char) | `11_build_graph.py` output |
 
-### Not re-measured in Phase 5
+### Re-validated on the real data after the first pass
 
-Quote these only with their original doc, or re-derive first:
-- EIV slope 1.08. OLS is 0.53 on the 5,747 table; EIV needs an error model that is not in a script.
-- Cold grip ρ −0.016.
-- "46–51% of elevation is zero".
-- Crowd-scale braking 13.3° vs 12.5°, p = 4.9e-3.
-- "77,700 rides", "roughly ten thousand events", and the "330 / 1,300 / 6,700 rides" projections. The
-  ±28 / 14 / 6% intervals are 1.96/√n arithmetic; the ride counts assume a fixed event rate.
+These were first left as "not re-measured". They were then re-derived from the raw tables and lake by
+`p6_revalidate.py`, in 8.1 s, using the original recipes (`03_deep_checks.py`, doc 15, doc 12 §3–4).
+Output: `analysis/out/phase5_revalidate.json`.
+
+| Claim as written | Verdict | Measured |
+|---|---|---|
+| "r = 0.730 over 5,747 corners **with an errors-in-variables slope of 1.08**" (06 walk-through, CONTEXT, START_HERE) | **REPRODUCED, MISATTRIBUTED** | 1.081 is the **point-level** slope: 244,363 trackpoints, raw GPS heading, r 0.602. With map-matched heading it is 0.916 (r 0.576), because 38.3% of moving samples read zero yaw, against 6.0% raw. At **corner level** the same estimator gives **0.785** (5,253 corners, r 0.765) and **0.731** (5,747, r 0.730). Never pair 1.08 with the corner correlation |
+| cold grip "spearman(lean, temp) −0.016 over 5,253 corners" | **REPRODUCED** | ρ −0.016, p 0.25, n 5,253; use-ratio vs temp ρ +0.040; median use ratio 0.771 at ≤ 12 °C (325 corners) vs 0.801 above 24 °C (1,919) |
+| cold grip "per-trip +0.224, p = 0.24, over 29 trips" | **NOT REPRODUCED** | no trip filter gives 29 trips or +0.22. Per-trip ρ lies between −0.07 and +0.05 at every cut (67 trips: −0.07, p 0.57; 28 trips with ≥ 20 corners: −0.02). The conclusion, no detectable temperature effect, is unchanged and stronger |
+| "46–51% of elevation in the lake is exactly zero" (06 slide 3, FINDINGS) | **REPRODUCED for map-matched elevation only** | trips-samples-2: 50.7% of rides have map-matched elevation zero throughout (52.0% of points). Recovered trips-samples-1: 44.8%. **Raw elevation is zero throughout on only 0.5% / 0.9% of rides.** The crowd layer already uses raw elevation with zeros masked (`10_crowd_layer.py`), so elevation, prominence, grade and the modes are unaffected. The pitch's reason for not scoring gradient is therefore weak: raw elevation exists |
+| crowd-scale braking "13.3° vs 12.5°, p = 4.9e-3, n = 6,912 cells" | **REPRODUCED** | 13.32° (311 cells with an event) vs 12.54° (6,584 without), Mann-Whitney p **4.6e-3**, 6,895 candidate cells. The rebuilt grid has 17 fewer candidates; the 311 are identical |
+| "trips-samples-1: 77,700 rides" | **DOCUMENTED, NOT VERIFIABLE** | the number is BMW's README; only 1,468 files (1,469 trip ids) were recovered. Against the files on disk, the README gets trips-samples-2's rides exactly (7,999) and understates its points (2.4 M stated, 2,722,293 on disk) |
+| "your crowd lake carries roughly ten thousand of these events" | **ORDER OF MAGNITUDE ONLY; the test cannot run there as it stands** | scaled to 77,700 rides at trips-samples-2 rates: 5,695 rides with an ABS code-3 sample, 12,074 code-3 samples; at user A's corner-event rate, 17,396. The recovered part of trips-samples-1 has a higher ride share (11.4% vs 7.3%). **The rider-level z test needs a rider's skill, and the crowd lake has no rider ids** |
+| "50 events ≈ 330 rides, 200 ≈ 1,300, 1,000 ≈ 6,700" | **CORRECTED** | the script assumed 0.15 events per ride. Measured: 15 events over 67 rides = **0.224**, so **223 / 893 / 4,467 rides**. The ±28 / 14 / 6% interval half-widths are correct |
 
 ### Standing-rule conflict
 

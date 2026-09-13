@@ -1,0 +1,144 @@
+{
+ "bridge_points_positionmapmatchedheading": {
+  "n": 244147,
+  "r": 0.576,
+  "ols_y_on_x": 0.527,
+  "inverse_reverse_ols": 1.592,
+  "geometric_mean_slope (EIV, equal relative noise)": 0.916,
+  "zero_yaw_share_moving": 0.383
+ },
+ "bridge_points_positionrawheading": {
+  "n": 244363,
+  "r": 0.602,
+  "ols_y_on_x": 0.651,
+  "inverse_reverse_ols": 1.794,
+  "geometric_mean_slope (EIV, equal relative noise)": 1.081,
+  "zero_yaw_share_moving": 0.06
+ },
+ "bridge_corners_filtered": {
+  "n": 5253,
+  "r": 0.765,
+  "ols_y_on_x": 0.601,
+  "inverse_reverse_ols": 1.026,
+  "geometric_mean_slope (EIV, equal relative noise)": 0.785
+ },
+ "bridge_corners_all": {
+  "n": 5747,
+  "r": 0.73,
+  "ols_y_on_x": 0.534,
+  "inverse_reverse_ols": 1.002,
+  "geometric_mean_slope (EIV, equal relative noise)": 0.731
+ },
+ "temp_coverage": {
+  "corners": 5253,
+  "with_temp": 5253,
+  "range_c": [
+   0.0,
+   37.2
+  ]
+ },
+ "cold_rho_lean_temp": {
+  "rho": -0.016,
+  "p": 0.24748198542859212,
+  "n": 5253
+ },
+ "cold_rho_useratio_temp": {
+  "rho": 0.04,
+  "p": 0.003364962464684289
+ },
+ "cold_per_trip_min1corners": {
+  "rho": -0.07,
+  "p": 0.573,
+  "trips": 67
+ },
+ "cold_per_trip_min10corners": {
+  "rho": -0.068,
+  "p": 0.704,
+  "trips": 34
+ },
+ "cold_per_trip_min20corners": {
+  "rho": -0.017,
+  "p": 0.932,
+  "trips": 28
+ },
+ "cold_per_trip_min30corners": {
+  "rho": 0.047,
+  "p": 0.82,
+  "trips": 26
+ },
+ "cold_per_trip_min50corners": {
+  "rho": -0.01,
+  "p": 0.965,
+  "trips": 24
+ },
+ "cold_use_ratio_median": {
+  "<=12C": 0.771,
+  ">24C": 0.801,
+  "n<=12": 325,
+  "n>24": 1919
+ },
+ "crowd_braking": {
+  "candidates": 6895,
+  "with_event": 311,
+  "without": 6584,
+  "median_demand_with": 13.32,
+  "median_demand_without": 12.54,
+  "mannwhitney_p": 0.0045753521238440864
+ },
+ "crowd_hazards_corrected_rows": 12,
+ "lake_trips-samples-2": {
+  "csv_files": 7999,
+  "distinct_trip_ids": 7999,
+  "points": 2722293,
+  "files_elevation_all_zero": 0.507,
+  "files_elevation_any_zero": 0.51,
+  "points_elevation_zero": 0.52,
+  "files_raw_elevation_all_zero": 0.005,
+  "abs3_samples": 1243,
+  "rides_with_abs3": 586,
+  "rides_with_abs3_share": 0.0733
+ },
+ "lake_trips-samples-1": {
+  "csv_files": 1468,
+  "distinct_trip_ids": 1469,
+  "points": 503409,
+  "files_elevation_all_zero": 0.448,
+  "files_elevation_any_zero": 0.454,
+  "points_elevation_zero": 0.443,
+  "files_raw_elevation_all_zero": 0.009,
+  "abs3_samples": 411,
+  "rides_with_abs3": 168,
+  "rides_with_abs3_share": 0.1144
+ },
+ "rider_events": {
+  "events": 15,
+  "corners": 5253,
+  "rides": 67,
+  "events_per_ride": 0.224
+ },
+ "projection_rides_needed": {
+  "50": {
+   "rides_at_measured_rate": 223,
+   "rides_at_script_rate_0.15": 333,
+   "ci_halfwidth_pct": 28
+  },
+  "200": {
+   "rides_at_measured_rate": 893,
+   "rides_at_script_rate_0.15": 1333,
+   "ci_halfwidth_pct": 14
+  },
+  "1000": {
+   "rides_at_measured_rate": 4467,
+   "rides_at_script_rate_0.15": 6667,
+   "ci_halfwidth_pct": 6
+  }
+ },
+ "full_lake_extrapolation": {
+  "documented_rides_samples_1": 77700,
+  "rides_with_abs3_at_samples2_share": 5695,
+  "abs3_samples_at_samples2_rate": 12074,
+  "rider_corner_events_at_userA_rate": 17396,
+  "note": "the crowd lake has no rider ids, so the rider-level z test cannot be run on it as it stands"
+ },
+ "runtime_s": 8.1
+}
