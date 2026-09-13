@@ -64,10 +64,16 @@ function BasemapPicker({ value, onChange }: { value: Basemap; onChange: (b: Base
   useEffect(() => {
     if (ref.current) { L.DomEvent.disableClickPropagation(ref.current); L.DomEvent.disableScrollPropagation(ref.current) }
   }, [])
+  useEffect(() => {
+    if (!open) return
+    const away = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('pointerdown', away)
+    return () => document.removeEventListener('pointerdown', away)
+  }, [open])
   return (
     <div className="leaflet-top leaflet-right pointer-events-none" style={{ top: 112, right: 10 }}>
       <div className="leaflet-control pointer-events-auto">
-        <div ref={ref} className="basemap-picker" onMouseLeave={() => setOpen(false)}>
+        <div ref={ref} className="basemap-picker">
           <button type="button" className="basemap-btn" onClick={() => setOpen((o) => !o)} title="Basemap">
             <Layers size={14} /> <span>{STYLES[value].label}</span>
           </button>
