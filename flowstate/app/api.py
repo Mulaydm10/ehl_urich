@@ -196,9 +196,16 @@ class RealtimeSessionReq(BaseModel):
     context: dict | None = None
 
 
+SOURCES = {"voice", "typed", "chip", "tool"}
+
+
 class ToolReq(BaseModel):
     name: str
     args: dict | None = None
+    # How the rider triggered this: spoken to the realtime model, typed at the
+    # assistant, or a tap on a complaint chip. A second screen watching the
+    # ride should not call a tap "voice"; unknown callers stay "tool".
+    source: str | None = None
     # The live ride (position, plan being followed) when the phone has one, so
     # mid-ride tools re-plan from where the bike actually is.
     context: dict | None = None
@@ -366,7 +373,8 @@ def viz_feed(rider_key: str = "userA", since: int = 0) -> JSONResponse:
 def assistant_tool(req: ToolReq) -> JSONResponse:
     """Run one assistant tool. The realtime model's function calls arrive on
     the phone, so they are executed here against the same engine and cloud."""
-    res = ASSISTANT.run_tool(req.name, req.args or {}, req.context)
+    source = req.source if req.source in SOURCES else "tool"
+    res = ASSISTANT.run_tool(req.name, req.args or {}, req.context, source=source)
     return JSONResponse(_clean(res), status_code=200)
 
 

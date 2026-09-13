@@ -188,7 +188,7 @@ async function runTool(
   try {
     run = await http.post<ToolRun>(
       '/api/assistant/tool',
-      { name, args, context: context() },
+      { name, args, source: 'voice', context: context() },
       45000,
     )
   } catch {

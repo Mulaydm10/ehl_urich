@@ -197,7 +197,11 @@ export interface RideContext {
 }
 
 export type FeedEvent =
-  | { seq: number; at: number; kind: 'tool'; rider_key: string; source: 'ask' | 'tool'; tool: string
+  // `source` is how the rider triggered it: spoken to the live voice model,
+  // typed at the assistant, a tap on a complaint chip, or a caller that did
+  // not say (`tool`). A tap is not voice, so the dashboard must not say it is.
+  | { seq: number; at: number; kind: 'tool'; rider_key: string
+      source: 'ask' | 'tool' | 'voice' | 'typed' | 'chip'; tool: string
       args: Record<string, unknown>; ride: RideContext | null; result: unknown }
   | { seq: number; at: number; kind: 'say'; rider_key: string; text: string; say: string; tools_used: string[]; ok: boolean }
 

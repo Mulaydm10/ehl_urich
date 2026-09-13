@@ -128,7 +128,7 @@ export function NavigateScreen() {
   const ask = useCallback(
     async (change: RerouteChange, reason: string) => {
       setBusy(change)
-      const res = await reroute(change, reason)
+      const res = await reroute(change, reason, rideContext(), 'chip')
       setBusy(null)
       if ('error' in res) {
         setSaid(res.error)

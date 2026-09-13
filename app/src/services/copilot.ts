@@ -211,16 +211,75 @@ export function rideContext(
   }
 }
 
-/** Trim a planned route to what the triggers need, so ticks stay small. */
-export function toCopilotRoute(r: FsRouteResult | null): CopilotRoute | null {
+const EARTH_M = 6371008.8
+
+export function metres(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  const p1 = (aLat * Math.PI) / 180
+  const p2 = (bLat * Math.PI) / 180
+  const dp = p2 - p1
+  const dl = ((bLon - aLon) * Math.PI) / 180
+  const h = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2
+  return 2 * EARTH_M * Math.asin(Math.sqrt(Math.min(1, Math.max(0, h))))
+}
+
+export interface AlongPlan {
+  /** Metres from the rider to the nearest point of the plan. */
+  offRouteM: number
+  /** Metres of the planned line still ahead of that point. */
+  remainingM: number
+  /** Metres of the whole planned line. */
+  totalM: number
+}
+
+/**
+ * Where a position sits along a planned line. Path points are [lon, lat] from
+ * the engine. Nothing is smoothed or predicted: the distance is measured on
+ * the drawn line, so it can only be wrong if the plan is.
+ */
+export function alongPlan(
+  path: [number, number][],
+  at: { lat: number; lon: number },
+): AlongPlan {
+  let nearest = 0
+  let offRouteM = Infinity
+  for (let i = 0; i < path.length; i += 1) {
+    const d = metres(at.lat, at.lon, path[i][1], path[i][0])
+    if (d < offRouteM) {
+      offRouteM = d
+      nearest = i
+    }
+  }
+  let remainingM = 0
+  let totalM = 0
+  for (let i = 0; i < path.length - 1; i += 1) {
+    const leg = metres(path[i][1], path[i][0], path[i + 1][1], path[i + 1][0])
+    totalM += leg
+    if (i >= nearest) remainingM += leg
+  }
+  return { offRouteM, remainingM, totalM }
+}
+
+/**
+ * Trim a planned route to what the triggers need, so ticks stay small.
+ *
+ * `remaining_km` is what is still ahead of the rider, not the plan's total:
+ * with a live fix it is measured along the line from the nearest point, the
+ * same way Navigate's own dock measures it, so a second screen following this
+ * ride shows the rider's number instead of the distance he started with.
+ */
+export function toCopilotRoute(
+  r: FsRouteResult | null,
+  at: { lat: number; lon: number } | null = null,
+): CopilotRoute | null {
   if (!r || !r.ok || r.path.length < 2) return null
   const last = r.path[r.path.length - 1]
   const summary = Array.isArray(r.summary) ? null : r.summary
+  const ahead = at ? alongPlan(r.path, at).remainingM / 1000 : null
   return {
     path: r.path,
     segments: r.segments,
     refusals: r.refusals,
     destination: [last[1], last[0]],
-    remaining_km: summary?.km ?? null,
+    remaining_km: ahead != null ? Math.round(ahead * 10) / 10 : summary?.km ?? null,
   }
 }

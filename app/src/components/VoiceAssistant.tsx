@@ -13,7 +13,7 @@ import {
   setPendingPlan,
 } from '../services/assistant'
 import { rideContext, setActiveRoute } from '../services/copilot'
-import { describeReroute, matchComplaint, reroute } from '../services/navigate'
+import { describeReroute, matchComplaint, reroute, type RerouteVia } from '../services/navigate'
 import {
   type RealtimeHandle,
   type RealtimeState,
@@ -105,12 +105,12 @@ export function VoiceAssistant() {
    * about the road, so the normal fallback runs.
    */
   const runComplaint = useCallback(
-    async (text: string): Promise<boolean> => {
+    async (text: string, via: RerouteVia): Promise<boolean> => {
       const change = matchComplaint(text)
       const ctx = rideContext()
       if (!change || !ctx) return false
       setThinking(true)
-      const res = await reroute(change, text, ctx)
+      const res = await reroute(change, text, ctx, via)
       setThinking(false)
       setUsedCloud(false)
       if ('error' in res) {
@@ -147,11 +147,11 @@ export function VoiceAssistant() {
   )
 
   const run = useCallback(
-    async (text: string) => {
+    async (text: string, via: RerouteVia = 'typed') => {
       setHeard(text)
       setReply(null)
       if (!cloud?.enabled) {
-        if (await runComplaint(text)) return
+        if (await runComplaint(text, via)) return
         runLocal(text)
         return
       }
@@ -167,7 +167,7 @@ export function VoiceAssistant() {
       if (!answer) {
         setCloudFailed(true)
         setUsedCloud(false)
-        if (await runComplaint(text)) return
+        if (await runComplaint(text, via)) return
         runLocal(text)
         return
       }
@@ -238,7 +238,7 @@ export function VoiceAssistant() {
       setReply(null)
       setHeard(null)
       start((text) => {
-        void run(text)
+        void run(text, 'voice')
       })
     }
   }

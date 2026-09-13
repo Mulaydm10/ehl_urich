@@ -11,7 +11,7 @@
  */
 import type { FsRouteResult, FsRouteSummary } from '../domain/types'
 import { http } from './http'
-import { rideContext, type RideContext } from './copilot'
+import { alongPlan, rideContext, type RideContext } from './copilot'
 
 export type RerouteChange = 'more_fun' | 'calmer' | 'scenic' | 'mountain' | 'avoid_this_road' | 'same'
 
@@ -59,10 +59,14 @@ export function matchComplaint(raw: string): RerouteChange | null {
   return null
 }
 
+/** How the rider asked for the change, for anything watching the ride. */
+export type RerouteVia = 'voice' | 'typed' | 'chip'
+
 export async function reroute(
   change: RerouteChange,
   reason: string | null,
   ctx: RideContext | null = rideContext(),
+  via: RerouteVia = 'typed',
 ): Promise<RerouteResult | { error: string }> {
   if (!ctx) return { error: 'No live GPS fix, so I cannot re-plan from here.' }
   // "This road is boring" is about a road the rider is on. With no plan loaded
@@ -73,7 +77,7 @@ export async function reroute(
   try {
     run = await http.post<ToolRun>(
       '/api/assistant/tool',
-      { name: 'reroute_from_here', args: { change, reason }, context: { ride: ctx } },
+      { name: 'reroute_from_here', args: { change, reason }, source: via, context: { ride: ctx } },
       45000,
     )
   } catch {
@@ -127,17 +131,6 @@ export function describeReroute(r: RerouteResult): string {
 export const summaryOf = (r: FsRouteResult | null): FsRouteSummary | null =>
   r && !Array.isArray(r.summary) ? r.summary : null
 
-const EARTH_M = 6371008.8
-
-function metres(aLat: number, aLon: number, bLat: number, bLon: number): number {
-  const p1 = (aLat * Math.PI) / 180
-  const p2 = (bLat * Math.PI) / 180
-  const dp = p2 - p1
-  const dl = ((bLon - aLon) * Math.PI) / 180
-  const h = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2
-  return 2 * EARTH_M * Math.asin(Math.sqrt(Math.min(1, Math.max(0, h))))
-}
-
 export interface Progress {
   /** Metres from the rider to the nearest point of the plan. */
   offRouteM: number
@@ -159,29 +152,13 @@ export function progressAlong(
 ): Progress | null {
   if (!plan?.ok || plan.path.length < 2 || !at) return null
   const path = plan.path
-  let nearest = 0
-  let best = Infinity
-  for (let i = 0; i < path.length; i += 1) {
-    const d = metres(at.lat, at.lon, path[i][1], path[i][0])
-    if (d < best) {
-      best = d
-      nearest = i
-    }
-  }
-  let remaining = 0
-  for (let i = nearest; i < path.length - 1; i += 1) {
-    remaining += metres(path[i][1], path[i][0], path[i + 1][1], path[i + 1][0])
-  }
-  let total = remaining
-  for (let i = 0; i < nearest; i += 1) {
-    total += metres(path[i][1], path[i][0], path[i + 1][1], path[i + 1][0])
-  }
+  const { offRouteM, remainingM, totalM } = alongPlan(path, at)
   const s = summaryOf(plan)
-  const share = total > 0 ? remaining / total : 0
+  const share = totalM > 0 ? remainingM / totalM : 0
   const last = path[path.length - 1]
   return {
-    offRouteM: best,
-    remainingKm: remaining / 1000,
+    offRouteM,
+    remainingKm: remainingM / 1000,
     remainingMin: s ? s.minutes * share : null,
     doneShare: 1 - share,
     destination: [last[1], last[0]],

@@ -157,7 +157,7 @@ export function useCopilot(
           thrill: opt.current.thrill ?? 0.5,
           mode: opt.current.mode ?? 'flow',
           bike_id: opt.current.bikeId ?? null,
-          route: toCopilotRoute(getActiveRoute()),
+          route: toCopilotRoute(getActiveRoute(), { lat: position.lat, lon: position.lng }),
         })
         setReachable(true)
         setTicks((n) => n + 1)

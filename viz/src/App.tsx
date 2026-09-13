@@ -21,6 +21,15 @@ const CUSTOM_EXAMPLE = 'custom:reversals_km=+2,elev_mean=+1,n_rides=-1'
 const MAX_VIA = 6 // flowstate/app/via.py MAX_VIA
 const FEED_POLL_MS = 1000
 const STEP_MS = 1300
+/** How the phone says the rider triggered a tool. A tap is not a spoken word,
+ *  so a chip never reads as voice here. */
+const TRIGGER: Record<string, string> = {
+  voice: 'by voice',
+  typed: 'by typing',
+  chip: 'by a tap on the phone',
+  ask: 'by typing',
+  tool: 'from the phone',
+}
 const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms))
 
 function errText(e: unknown): string {
@@ -233,7 +242,7 @@ export default function App() {
       await sleep(STEP_MS)
       setSearch(null)
       setActive(plan); setT(0)
-      setActiveLabel(`${m.mode_to} @ ${m.thrill_to.toFixed(2)} — re-planned by voice${m.reason ? ` (“${m.reason}”)` : ''}`)
+      setActiveLabel(`${m.mode_to} @ ${m.thrill_to.toFixed(2)} — re-planned ${TRIGGER[ev.source] ?? 'from the phone'}${m.reason ? ` (“${m.reason}”)` : ''}`)
     } catch (e) {
       setReroute(null); setRerouteErr(errText(e))
     } finally { setRerouting(false); setStage(null) }
@@ -371,7 +380,7 @@ export default function App() {
                   ) : (
                     <>
                       <div className="flex items-center gap-1.5"><GitFork size={11} className="text-amber" /> <span className="font-mono">{ev.tool}</span>
-                        <span className="ml-auto text-[10px] text-dim">{ev.source === 'tool' ? 'live voice' : 'typed / chat'}</span></div>
+                        <span className="ml-auto text-[10px] text-dim">{TRIGGER[ev.source] ?? 'from the phone'}</span></div>
                       {Object.keys(ev.args).length ? <div className="mt-0.5 break-all font-mono text-[10.5px] text-dim">{JSON.stringify(ev.args)}</div> : null}
                       {(() => { const r = ev.result as { error?: string } | null; return r?.error ? <div className="mt-0.5 text-mred">{r.error}</div> : null })()}
                     </>
