@@ -167,6 +167,12 @@ class LinkReportReq(BaseModel):
     transfer: dict | None = None
 
 
+class LinkDebugReq(BaseModel):
+    """Batch of radio events from the phone's BikeLink plugin."""
+    session: str | None = None
+    events: list[dict] = []
+
+
 class AssistantReq(BaseModel):
     text: str
     context: dict | None = None
@@ -420,6 +426,25 @@ def bmw_link_gpx(route_id: str) -> Response:
 @app.post("/api/bmw/link/native/report")
 def bmw_link_native_report(req: LinkReportReq) -> JSONResponse:
     return ok(LINK.report(req.model_dump(exclude_none=True)))
+
+
+# Live debug trail. The phone posts what its radio did; the app's log panel and
+# anyone on the tailnet (`curl .../link/debug?since=N`) read it back, so a test
+# ride next to the bike can be watched from the Mac in real time.
+
+@app.post("/api/bmw/link/debug")
+def bmw_link_debug_post(req: LinkDebugReq) -> JSONResponse:
+    return ok(LINK.trail.ingest(req.events, req.session))
+
+
+@app.get("/api/bmw/link/debug")
+def bmw_link_debug_get(since: int = 0, limit: int = 500) -> JSONResponse:
+    return ok(LINK.trail.since(since, max(1, min(limit, 2000))))
+
+
+@app.post("/api/bmw/link/debug/clear")
+def bmw_link_debug_clear() -> JSONResponse:
+    return ok(LINK.trail.clear())
 
 
 # --------------------------------------------------------------------------

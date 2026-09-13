@@ -14,6 +14,10 @@
  * UNVERIFIED: the bike's GATT service / characteristic for route transfer is
  * not known (never captured). `ROUTE_GATT` is therefore null and the native
  * plugin refuses to send until it is sourced on a real bike. Fill it in there.
+ *
+ * Debugging a real bike: every radio event the plugin emits is kept here in a
+ * ring buffer, shown by BikeLinkLog and forwarded to the backend trail
+ * (POST /api/bmw/link/debug) so the ride can be watched from the Mac.
  */
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import type { PluginListenerHandle } from '@capacitor/core'
@@ -37,6 +41,34 @@ export interface LinkDevice {
   rssi: number | null
   paired: boolean
   standIn: boolean
+  /** How it was found: BLE advertising or a bonded Bluetooth Classic device. */
+  kind?: 'ble' | 'classic'
+  /** Looks like the bike head unit by SDP UUID or name prefix (BMW app's own test). */
+  icc?: boolean
+  iccReason?: 'sdp_uuid' | 'name_prefix' | null
+  bondState?: 'none' | 'bonding' | 'bonded'
+  sdpUuids?: string[]
+  shortId?: string
+}
+
+/** One radio event. Free-form fields per `op`; the log panel renders them raw. */
+export interface LinkTraceEvent {
+  seq: number
+  at: number
+  op: string
+  level: 'info' | 'warn' | 'error'
+  source: string
+  session?: string
+  [field: string]: unknown
+}
+
+/** Result of opening (and closing) an RFCOMM channel; no protocol is spoken. */
+export interface IccProbe {
+  ok: boolean
+  uuid: string
+  elapsedMs: number
+  message: string
+  error?: string
 }
 
 export interface LinkConnection {
@@ -95,7 +127,28 @@ export interface BikeLinkClient {
   disconnect(): Promise<LinkStatus>
   sendRoute(routeId: string, bikeId: string): Promise<LinkTransfer>
   onChange(cb: () => void): () => void
+  /** Bonded Bluetooth Classic devices — where the BMW app finds the head unit. */
+  listBonded(): Promise<LinkDevice[]>
+  /** Open and close an RFCOMM channel to see whether the bike accepts it. */
+  probeIcc(deviceId: string, uuid?: string): Promise<IccProbe>
+  trace(): LinkTraceEvent[]
+  onTrace(cb: (e: LinkTraceEvent) => void): () => void
+  clearTrace(): Promise<void>
 }
+
+/**
+ * SDP service IDs the shipped BMW app accepts for the bike head unit
+ * (com.bmw.connride.connectivity.bluetooth). They identify a *Bluetooth
+ * Classic / RFCOMM* endpoint, so they are offered as probe targets only;
+ * they are deliberately NOT used as GATT route-transfer UUIDs.
+ */
+export const ICC_SERVICE_UUIDS = [
+  'c707050e-efae-1449-3913-c191e5bb32dc',
+  'a96f9e76-ab2e-869c-40e3-1da0c086a07a',
+  'dc32bbe5-91c1-1339-4914-aeef0e0507c7',
+] as const
+
+const TRACE_LIMIT = 500
 
 /** GATT identifiers of the bike's route-transfer service. Unknown => refuse to send. */
 export const ROUTE_GATT: { serviceUuid: string; characteristicUuid: string } | null = null
@@ -114,7 +167,11 @@ interface BikeLinkPlugin {
   disconnect(): Promise<LinkConnection>
   getConnectionState(): Promise<LinkConnection>
   sendRoute(opts: { gpx: string; serviceUuid?: string; characteristicUuid?: string }): Promise<{ ok: boolean; bytes: number; message: string }>
-  addListener(event: 'device' | 'connectionState' | 'services' | 'scanFailed', cb: (data: unknown) => void): Promise<PluginListenerHandle>
+  listBondedDevices(): Promise<{ devices: LinkDevice[] }>
+  probeIccLink(opts: { deviceId: string; uuid?: string }): Promise<IccProbe>
+  getTrace(opts: { since: number }): Promise<{ events: LinkTraceEvent[]; nextSeq: number; dropped: number; session: string }>
+  clearTrace(): Promise<{ nextSeq: number }>
+  addListener(event: 'device' | 'connectionState' | 'services' | 'scanFailed' | 'trace', cb: (data: unknown) => void): Promise<PluginListenerHandle>
 }
 
 const Native = registerPlugin<BikeLinkPlugin>('BikeLink')
@@ -131,6 +188,55 @@ class Emitter {
   emit() { for (const cb of this.subs) cb() }
 }
 
+/**
+ * Ring buffer of radio events plus the best-effort forward to the backend
+ * trail. Events are batched so a chunked transfer does not turn into one HTTP
+ * request per write.
+ */
+class TraceLog {
+  private events: LinkTraceEvent[] = []
+  private subs = new Set<(e: LinkTraceEvent) => void>()
+  private queue: LinkTraceEvent[] = []
+  private flushTimer: ReturnType<typeof setTimeout> | null = null
+  private seq = 0
+
+  private readonly online: () => boolean
+  private readonly forward: boolean
+
+  constructor(online: () => boolean, forward: boolean) {
+    this.online = online
+    this.forward = forward
+  }
+
+  add(e: Partial<LinkTraceEvent> & { op: string }): LinkTraceEvent {
+    const ev: LinkTraceEvent = {
+      level: 'info', source: 'app', at: Date.now(), seq: ++this.seq, ...e,
+    }
+    this.events.push(ev)
+    if (this.events.length > TRACE_LIMIT) this.events.splice(0, this.events.length - TRACE_LIMIT)
+    for (const cb of this.subs) cb(ev)
+    if (this.forward) this.enqueue(ev)
+    return ev
+  }
+
+  private enqueue(ev: LinkTraceEvent) {
+    this.queue.push(ev)
+    if (this.flushTimer) return
+    this.flushTimer = setTimeout(() => { this.flushTimer = null; void this.flush() }, 800)
+  }
+
+  private async flush() {
+    const batch = this.queue.splice(0, this.queue.length)
+    if (!batch.length || !this.online()) return
+    try { await post('/debug', { session: batch[0].session, events: batch }) }
+    catch { /* the trail is diagnostics; never fail an action because of it */ }
+  }
+
+  all() { return [...this.events] }
+  clear() { this.events = [] }
+  on(cb: (e: LinkTraceEvent) => void) { this.subs.add(cb); return () => { this.subs.delete(cb) } }
+}
+
 // --------------------------------------------------------------------------
 // backend-driven (browser / stand-in)
 // --------------------------------------------------------------------------
@@ -140,19 +246,29 @@ const get = <T,>(path: string) => http.get<T>(`/api/bmw/link${path}`)
 
 export const backendLink: BikeLinkClient = (() => {
   const ev = new Emitter()
+  // The backend records its own side of these calls, so nothing is forwarded.
+  const log = new TraceLog(() => true, false)
   const after = async (p: Promise<unknown>) => { await p; ev.emit(); return get<LinkStatus>('/status') }
+  const noRadio = (what: string): never => {
+    throw new Error(`${what} needs the phone's Bluetooth radio; this browser session has none.`)
+  }
   return {
     transport: 'stand_in' as LinkTransport,
     status: () => get<LinkStatus>('/status'),
     capabilities: (bikeId) => get<LinkCapabilities>(`/capabilities/${bikeId}`),
     requestPermissions: async () => true,
-    scan: (active) => after(post('/scan', { active })),
+    scan: (active) => { log.add({ op: 'scan', source: 'backend', active }); return after(post('/scan', { active })) },
     pair: (deviceId) => after(post('/pair', { deviceId })),
     unpair: (deviceId) => after(post('/unpair', { deviceId })),
-    connect: (deviceId) => after(post('/connect', { deviceId })),
+    connect: (deviceId) => { log.add({ op: 'connect', source: 'backend', deviceId }); return after(post('/connect', { deviceId })) },
     disconnect: () => after(post('/disconnect', {})),
     sendRoute: (routeId, bikeId) => post<LinkTransfer>('/send', { routeId, bikeId }),
     onChange: (cb) => ev.on(cb),
+    listBonded: async () => noRadio('Listing bonded devices'),
+    probeIcc: async () => noRadio('Probing the bike RFCOMM channel'),
+    trace: () => log.all(),
+    onTrace: (cb) => log.on(cb),
+    clearTrace: async () => { log.clear() },
   }
 })()
 
@@ -163,6 +279,7 @@ export const backendLink: BikeLinkClient = (() => {
 export function makeNativeLink(online: () => boolean): BikeLinkClient {
   const ev = new Emitter()
   const devices = new Map<string, LinkDevice>()
+  const log = new TraceLog(online, true)
   let listening = false
 
   const report = async (body: Record<string, unknown>) => {
@@ -176,6 +293,7 @@ export function makeNativeLink(online: () => boolean): BikeLinkClient {
     await Native.addListener('device', (d) => { const dev = d as LinkDevice; devices.set(dev.id, dev); ev.emit() })
     await Native.addListener('connectionState', (c) => { void report({ connection: c }); ev.emit() })
     await Native.addListener('scanFailed', () => ev.emit())
+    await Native.addListener('trace', (e) => { log.add(e as LinkTraceEvent); ev.emit() })
   }
 
   const status = async (): Promise<LinkStatus> => {
@@ -208,6 +326,21 @@ export function makeNativeLink(online: () => boolean): BikeLinkClient {
     },
     pair: async () => unsupported('In-app pairing'),
     unpair: async () => unsupported('In-app unpairing'),
+    listBonded: async () => {
+      await listen()
+      const { devices: bonded } = await Native.listBondedDevices()
+      for (const d of bonded) devices.set(d.id, d)
+      ev.emit()
+      void report({ devices: [...devices.values()] })
+      return bonded
+    },
+    probeIcc: async (deviceId, uuid) => {
+      await listen()
+      return Native.probeIccLink(uuid ? { deviceId, uuid } : { deviceId })
+    },
+    trace: () => log.all(),
+    onTrace: (cb) => log.on(cb),
+    clearTrace: async () => { log.clear(); await Native.clearTrace() },
     connect: async (deviceId) => { await Native.connect({ deviceId }); ev.emit(); return status() },
     disconnect: async () => { await Native.disconnect(); ev.emit(); return status() },
     sendRoute: async (routeId, bikeId) => {
@@ -266,6 +399,11 @@ export const offlineLink: BikeLinkClient = (() => {
     scan: same, pair: same, unpair: same, connect: same, disconnect: same,
     sendRoute: async () => ({ ok: false, status: 'failed', standIn: true, transport: 'offline', target: 'phone', message: OFFLINE_NOTE }),
     onChange: () => () => {},
+    listBonded: async () => { throw new Error(OFFLINE_NOTE) },
+    probeIcc: async () => { throw new Error(OFFLINE_NOTE) },
+    trace: () => [],
+    onTrace: () => () => {},
+    clearTrace: async () => {},
   }
 })()
 

@@ -3,6 +3,7 @@ import { Bluetooth, BluetoothOff, RefreshCw } from 'lucide-react'
 import { useAppState } from '../state/AppState'
 import { StatusLed } from './Cluster'
 import { Feedback, GhostButton, Unavailable } from './primitives'
+import { BikeLinkLog } from './BikeLinkLog'
 import { resolveBikeLink } from '../services/bikeLink'
 import type { BikeLinkClient, LinkCapabilities, LinkStatus } from '../services/bikeLink'
 
@@ -42,13 +43,16 @@ export function useBikeLink(): { link: BikeLinkClient; status: LinkStatus | null
 export function BikeLinkPanel({ compact = false }: { compact?: boolean }) {
   const { link, status, caps, refresh, error } = useBikeLink()
   const [busy, setBusy] = useState<string | null>(null)
-  const [note, setNote] = useState<string | null>(null)
+  const [note, setNote] = useState<{ tone: 'info' | 'error'; text: string } | null>(null)
+  const [showLog, setShowLog] = useState(false)
+
+  const say = (text: string) => setNote({ tone: 'info', text })
 
   const act = async (key: string, fn: () => Promise<unknown>) => {
     setBusy(key)
     setNote(null)
     try { await fn(); await refresh() }
-    catch (e) { setNote(e instanceof Error ? e.message : 'Bike link action failed.') }
+    catch (e) { setNote({ tone: 'error', text: e instanceof Error ? e.message : 'Bike link action failed.' }) }
     finally { setBusy(null) }
   }
 
@@ -96,6 +100,13 @@ export function BikeLinkPanel({ compact = false }: { compact?: boolean }) {
             await link.scan(!connection.scanning)
           })}>{connection.scanning ? 'Stop scan' : 'Scan for bike'}</GhostButton>
           {connected ? <GhostButton compact busy={busy === 'disconnect'} onClick={() => act('disconnect', () => link.disconnect())}>Disconnect</GhostButton> : null}
+          {status.transport === 'native_ble' ? (
+            <GhostButton compact busy={busy === 'bonded'} onClick={() => act('bonded', async () => {
+              if (!(await link.requestPermissions())) throw new Error('Bluetooth permission not granted.')
+              const bonded = await link.listBonded()
+              say(`${bonded.length} bonded device(s); ${bonded.filter((d) => d.icc).length} look like a BMW head unit.`)
+            })}>List paired devices</GhostButton>
+          ) : null}
         </div>
       ) : null}
 
@@ -103,8 +114,13 @@ export function BikeLinkPanel({ compact = false }: { compact?: boolean }) {
         <div className="data-list">
           {devices.map((d) => (
             <div key={d.id} className="data-list-row">
-              <div className="min-w-0"><div className="text-[14px] font-medium">{d.name}</div><p className="caption mt-0.5">{d.rssi != null ? `${d.rssi} dBm · ` : ''}{d.paired ? 'Paired' : 'Not paired'}{d.standIn ? ' · stand-in' : ''}</p></div>
+              <div className="min-w-0"><div className="text-[14px] font-medium">{d.name}{d.icc ? <span className="caption ml-2">BMW head unit?</span> : null}</div><p className="caption mt-0.5">{d.rssi != null ? `${d.rssi} dBm · ` : ''}{d.kind === 'classic' ? 'Bluetooth Classic · ' : ''}{d.paired ? 'Paired' : 'Not paired'}{d.standIn ? ' · stand-in' : ''}{d.iccReason ? ` · matched by ${d.iccReason === 'sdp_uuid' ? 'SDP UUID' : 'name'}` : ''}</p></div>
               <div className="flex shrink-0 gap-2">
+                {status.transport === 'native_ble' && d.paired ? (
+                  <GhostButton compact busy={busy === `probe-${d.id}`} onClick={() => act(`probe-${d.id}`, async () => {
+                    say((await link.probeIcc(d.id)).message)
+                  })}>Probe RFCOMM</GhostButton>
+                ) : null}
                 {status.transport === 'stand_in' && !d.paired ? <GhostButton compact busy={busy === `pair-${d.id}`} onClick={() => act(`pair-${d.id}`, () => link.pair(d.id))}>Pair</GhostButton> : null}
                 {connection.deviceId === d.id && connected ? null : <GhostButton compact busy={busy === `connect-${d.id}`} disabled={status.transport === 'stand_in' && !d.paired} onClick={() => act(`connect-${d.id}`, () => link.connect(d.id))}>Connect</GhostButton>}
               </div>
@@ -113,7 +129,14 @@ export function BikeLinkPanel({ compact = false }: { compact?: boolean }) {
         </div>
       ) : connection.scanning ? <p className="caption">Scanning… no devices found yet.</p> : null}
 
-      {note ? <Feedback tone="error">{note}</Feedback> : null}
+      {note ? <Feedback tone={note.tone}>{note.text}</Feedback> : null}
+
+      {!compact ? (
+        <div className="space-y-3">
+          <GhostButton compact onClick={() => setShowLog((v) => !v)}>{showLog ? 'Hide radio log' : 'Radio log'}</GhostButton>
+          {showLog ? <BikeLinkLog link={link} /> : null}
+        </div>
+      ) : null}
     </div>
   )
 }

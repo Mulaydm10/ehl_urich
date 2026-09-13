@@ -29,6 +29,12 @@ Unverified: the BLE GATT layout and the mySPIN wire protocol of the real bike
 were not captured (the analysis emulator has no radio). Nothing in this file
 depends on specific UUIDs or opcodes; the payload is plain GPX 1.1, which is
 what the phone-side transport has to translate once the protocol is known.
+
+What the decompiled BMW app does instead (docs/28): the bike head unit (ICC)
+is a *bonded Bluetooth Classic* device reached over RFCOMM/SPP, carrying a
+ZeroC Ice session; navigation is pushed as maneuvers, not as a GPX file. The
+debug trail below exists so that the phone's real radio behaviour next to the
+bike can be watched live from here instead of guessed.
 """
 
 from __future__ import annotations
@@ -42,6 +48,8 @@ from xml.sax.saxutils import escape
 TransportKind = Literal["stand_in", "native_ble"]
 ConnectionState = Literal["unavailable", "disconnected", "connecting", "connected"]
 TransferStatus = Literal["stand_in", "pending_phone", "sent", "failed", "unknown_transfer"]
+
+TRAIL_LIMIT = 4000  # debug events kept in memory; oldest dropped first
 
 
 # --------------------------------------------------------------------------
@@ -98,6 +106,79 @@ def capabilities_for(bike: dict | None) -> dict:
                 if has_module else
                 "No connectivity module: navigation stays on the phone.",
     }
+
+
+# --------------------------------------------------------------------------
+# debug trail — what actually happened on the radio
+# --------------------------------------------------------------------------
+
+class DebugTrail:
+    """
+    In-memory, monotonically numbered event log of the link.
+
+    The phone posts what its radio did (POST /api/bmw/link/debug); the backend
+    appends what it did itself. Anyone watching (the app's log panel, curl on
+    the Mac) polls GET /api/bmw/link/debug?since=<seq>. It is a diagnostic
+    record only: an event here never changes connection or transfer state.
+    """
+
+    def __init__(self, limit: int = TRAIL_LIMIT) -> None:
+        self.limit = limit
+        self.events: list[dict] = []
+        self.next_seq = 1
+        self.dropped = 0
+
+    def add(self, source: str, op: str, level: str = "info", **fields) -> dict:
+        ev = {
+            "seq": self.next_seq,
+            "at": time.time(),
+            "source": source,       # "phone" | "backend"
+            "op": op,               # scan.start, gatt.write.ack, icc.probe, ...
+            "level": level,         # info | warn | error
+            **{k: v for k, v in fields.items() if v is not None},
+        }
+        self.next_seq += 1
+        self.events.append(ev)
+        if len(self.events) > self.limit:
+            cut = len(self.events) - self.limit
+            del self.events[:cut]
+            self.dropped += cut
+        return ev
+
+    def ingest(self, events: list[dict], session: str | None = None) -> dict:
+        """Phone-side events keep their own timestamps/ordering fields."""
+        taken = 0
+        for e in events:
+            if not isinstance(e, dict):
+                continue
+            self.add(
+                str(e.get("source") or "phone"),
+                str(e.get("op") or "phone.event"),
+                str(e.get("level") or "info"),
+                session=session or e.get("session"),
+                phoneSeq=e.get("seq"),
+                phoneAt=e.get("at"),
+                detail={k: v for k, v in e.items()
+                        if k not in ("source", "op", "level", "seq", "at", "session")} or None,
+            )
+            taken += 1
+        return {"ok": True, "accepted": taken, "nextSeq": self.next_seq}
+
+    def since(self, seq: int = 0, limit: int = 500) -> dict:
+        out = [e for e in self.events if e["seq"] > seq][:limit]
+        return {
+            "ok": True,
+            "events": out,
+            "nextSeq": self.next_seq,
+            "count": len(out),
+            "dropped": self.dropped,
+            "buffered": len(self.events),
+        }
+
+    def clear(self) -> dict:
+        self.events.clear()
+        self.dropped = 0
+        return {"ok": True, "nextSeq": self.next_seq}
 
 
 # --------------------------------------------------------------------------
@@ -330,6 +411,9 @@ class BikeLink:
         self.transport: BikeLinkTransport = (
             NativeBleTransport(cloud) if kind in ("native", "native_ble", "ble") else StandInTransport(cloud)
         )
+        self.trail = DebugTrail()
+        self.trail.add("backend", "link.init", transportKind=self.transport.kind,
+                       standIn=self.transport.stand_in)
 
     def status(self) -> dict:
         return self.transport.status()
@@ -352,13 +436,22 @@ class BikeLink:
             return {"ok": False, "status": "failed", "standIn": self.transport.stand_in,
                     "transport": self.transport.kind, "target": "phone",
                     "message": f"{bike['model']} has no connectivity module - navigating on the phone."}
-        return self.transport.send(route, bike, device_id)
+        t = self.transport.send(route, bike, device_id)
+        self.trail.add("backend", "transfer.created", level="warn" if not t.get("ok") else "info",
+                       transferId=t.get("transferId"), status=t.get("status"), routeId=route_id,
+                       bikeId=bike_id, deviceId=device_id, gpxBytes=len(t.get("gpx", "")) or None)
+        return t
 
     def gpx(self, route_id: str) -> str | None:
         route = next((r for r in self.cloud.get_routes() if r["id"] == route_id), None)
         return route_to_gpx(route) if route else None
 
     def report(self, rep: dict) -> dict:
+        tx = rep.get("transfer") if isinstance(rep.get("transfer"), dict) else None
+        self.trail.add("phone", "report", level="warn" if tx and not tx.get("ok") else "info",
+                       connection=rep.get("connection"), adapter=rep.get("adapter"),
+                       deviceCount=len(rep["devices"]) if isinstance(rep.get("devices"), list) else None,
+                       transfer=tx)
         if isinstance(self.transport, NativeBleTransport):
             return self.transport.report(rep)
         return {"ok": False, "standIn": True,
