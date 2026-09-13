@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.10.6",
+  "checkpoint_id": "01M2CH8F376W3ZDWQTDHYGQX4F",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "CONTEXT.md",
+    "flowstate/app/route_tab.py",
+    "flowstate/app/router.py",
+    "flowstate/app/streamlit_app.py",
+    "flowstate/docs/19_FEATURE_PHASES.md",
+    "flowstate/docs/24_PHASE5_INTEGRATION.md",
+    "flowstate/docs/25_FRONTEND_API.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 910,
+    "cache_creation_tokens": 248264,
+    "cache_read_tokens": 6296432,
+    "output_tokens": 81625,
+    "api_call_count": 34
+  }
+}
