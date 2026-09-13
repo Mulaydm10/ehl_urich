@@ -4,6 +4,7 @@ import { ChevronRight, HardDrive, Monitor, Users } from 'lucide-react'
 import { useAppState } from '../state/AppState'
 import { EmptyState, GhostButton, SectionTitle } from '../components/primitives'
 import { getBackendUrl, setBackendUrl } from '../services/http'
+import { BikeLinkPanel } from '../components/BikeLinkPanel'
 
 const LINKS = [
   { to: '/group', label: 'Group ride', note: 'Riders, route and regroup point', Icon: Users },
@@ -52,6 +53,9 @@ export function MoreScreen() {
       </div>
 
       {!bikeRides.length ? <div className="mx-6"><EmptyState title="No rides recorded">Your {bike.model} ride history will appear here.</EmptyState></div> : null}
+
+      <SectionTitle title="Bike link" subtitle="Bluetooth to the TFT or Navigator" action={<Link to="/handoff" className="caption">Send a route</Link>} />
+      <div className="mx-6 rounded-3xl bg-raised p-5"><BikeLinkPanel compact /></div>
 
       <SectionTitle title="Preferences" subtitle="Your current setup" />
       <div className="data-list mx-6">
