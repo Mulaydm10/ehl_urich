@@ -85,14 +85,19 @@ export function VoiceAssistant() {
       setReply(answer.say)
       speak(answer.say)
       let go: string | null = null
+      let planned = false
       for (const action of answer.actions) {
         if (action.type === 'select_bike') selectBike(action.bikeId)
         if (action.type === 'show_route') {
           setPendingPlan(action.plan)
-          go = go ?? '/thrill'
+          planned = true
         }
         if (action.type === 'navigate') go = routeForScreen(action.screen) ?? go
       }
+      // A fresh plan wins over whichever screen the model asked for: Thrill is
+      // the only screen that can draw it, and being told about a route that is
+      // nowhere on screen is worse than ignoring the model's choice.
+      if (planned) go = '/thrill'
       if (go) {
         setOpen(false)
         navigate(go)

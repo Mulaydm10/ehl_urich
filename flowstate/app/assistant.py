@@ -55,7 +55,8 @@ Thrill is a number from 0 to 1: 0.15 cruise, 0.50 flow, 0.90 send it. Modes are
 flow, scenic and mountain.
 
 When the rider asks to see or plan something, call the function and also call
-open_screen so the app shows the result.
+open_screen so the app shows the result. Routes from plan_route and plan_loop
+are drawn on the "thrill" screen, so that is the screen to open after planning.
 """
 
 # Places inside the FLOWSTATE coverage box, so spoken place names resolve
