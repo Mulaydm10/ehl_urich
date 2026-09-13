@@ -149,6 +149,15 @@ function makeUnavailableMySpin(): MySpinClient {
   }
 }
 
+// One native client for the whole app: each call used to build a new client
+// whose plugin listeners were never removed, so one mySPIN event reached the
+// backend trail once per panel mount (6-8 identical copies on the real phone).
+let nativeMySpin: MySpinClient | null = null
+let mySpinOnline: () => boolean = () => false
+
 export function resolveMySpin(online: () => boolean): MySpinClient {
-  return mySpinAvailable() ? makeNativeMySpin(online) : makeUnavailableMySpin()
+  if (!mySpinAvailable()) return makeUnavailableMySpin()
+  mySpinOnline = online
+  if (!nativeMySpin) nativeMySpin = makeNativeMySpin(() => mySpinOnline())
+  return nativeMySpin
 }

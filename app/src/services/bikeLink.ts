@@ -357,7 +357,10 @@ export function makeNativeLink(online: () => boolean): BikeLinkClient {
       await listen()
       if (scanTimer) { clearTimeout(scanTimer); scanTimer = null }
       if (active) {
-        devices.clear()
+        // Keep bonded devices: the bike's head unit is a paired Bluetooth Classic
+        // device that never shows up in a BLE scan, so clearing everything made
+        // the bike vanish from the list the moment a scan started.
+        for (const [id, d] of devices) if (!d.paired) devices.delete(id)
         await Native.startScan()
         scanTimer = setTimeout(() => {
           scanTimer = null
@@ -450,7 +453,18 @@ export const offlineLink: BikeLinkClient = (() => {
   }
 })()
 
+// One native client for the whole app. Every screen that opened the bike link
+// used to build its own, and each registered plugin listeners that were never
+// removed, so one radio event reached the backend trail once per screen visit
+// (5-8 identical copies on the real phone).
+let nativeClient: BikeLinkClient | null = null
+let nativeOnline: () => boolean = () => false
+
 export function resolveBikeLink(online: () => boolean): BikeLinkClient {
-  if (nativeLinkAvailable()) return makeNativeLink(online)
+  if (nativeLinkAvailable()) {
+    nativeOnline = online
+    if (!nativeClient) nativeClient = makeNativeLink(() => nativeOnline())
+    return nativeClient
+  }
   return online() ? backendLink : offlineLink
 }

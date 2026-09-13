@@ -417,12 +417,56 @@ public class BikeLinkPlugin extends Plugin {
                 socket = device.createRfcommSocketToServiceRecord(service);
                 socket.connect();
                 long ms = System.currentTimeMillis() - t0;
+
+                // Listen only: record whatever the head unit sends on its own after
+                // accepting, for up to listenMs. Nothing is ever written to the socket.
+                // A ZeroC Ice server opens with a validate-connection message that
+                // starts with the magic bytes "IceP", so this shows whether the
+                // channel really speaks Ice as the decompiled BMW app suggests.
+                int listenMs = Math.max(0, Math.min(call.getInt("listenMs", 3000), 10000));
+                byte[] buf = new byte[512];
+                int got = 0;
+                String readError = null;
+                long listenStart = System.currentTimeMillis();
+                try {
+                    java.io.InputStream in = socket.getInputStream();
+                    while (got < buf.length && System.currentTimeMillis() - listenStart < listenMs) {
+                        int avail = in.available();
+                        if (avail > 0) {
+                            int n = in.read(buf, got, Math.min(avail, buf.length - got));
+                            if (n < 0) break;
+                            got += n;
+                        } else {
+                            try { Thread.sleep(40); } catch (InterruptedException ie) { break; }
+                        }
+                    }
+                } catch (IOException re) {
+                    readError = re.getClass().getSimpleName() + ": " + re.getMessage();
+                }
+                StringBuilder hex = new StringBuilder();
+                StringBuilder ascii = new StringBuilder();
+                for (int i = 0; i < got; i++) {
+                    int b = buf[i] & 0xff;
+                    if (i < 256) hex.append(String.format("%02x", b)).append(i % 16 == 15 ? "\n" : " ");
+                    ascii.append(b >= 32 && b < 127 ? (char) b : '.');
+                }
+                boolean iceMagic = got >= 4 && buf[0] == 'I' && buf[1] == 'c' && buf[2] == 'e' && buf[3] == 'P';
+
                 JSObject o = new JSObject();
                 o.put("ok", true);
                 o.put("elapsedMs", ms);
                 o.put("uuid", uuid);
-                o.put("message", "RFCOMM channel " + uuid + " accepted the connection in " + ms
-                    + " ms. The channel exists; no protocol was spoken and nothing was sent.");
+                o.put("listenMs", listenMs);
+                o.put("bytesReceived", got);
+                o.put("hex", hex.toString().trim());
+                o.put("ascii", ascii.length() > 256 ? ascii.substring(0, 256) : ascii.toString());
+                o.put("iceMagic", iceMagic);
+                if (readError != null) o.put("readError", readError);
+                String heard = got == 0
+                    ? "The bike sent nothing in " + listenMs + " ms."
+                    : "The bike sent " + got + " byte(s) on its own" + (iceMagic ? ", starting with the ZeroC Ice magic \"IceP\"." : ".");
+                o.put("message", "RFCOMM channel " + uuid + " accepted the connection in " + ms + " ms. "
+                    + heard + " Nothing was sent to the bike.");
                 emit("icc.probe.ok", o);
                 call.resolve(o);
             } catch (IOException | SecurityException e) {
