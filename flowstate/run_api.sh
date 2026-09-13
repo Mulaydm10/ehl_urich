@@ -25,6 +25,12 @@ export FLOWSTATE_REQUIRE_REAL="${FLOWSTATE_REQUIRE_REAL:-1}"
 # to OpenAI, so the audio never crosses the tailnet. OPENAI_REALTIME=0 turns
 # that off and leaves the typed assistant alone; OPENAI_REALTIME_MODEL and
 # OPENAI_REALTIME_VOICE override the defaults (gpt-realtime, alloy).
+#
+# On the Mac the key lives in ~/.openai-key (chmod 600, outside the repo). If no
+# key is exported, use that file so a restart keeps the assistant on.
+if [ -z "${OPENAI_API_KEY:-}" ] && [ -z "${OPENAI_API_KEY_FILE:-}" ] && [ -f "$HOME/.openai-key" ]; then
+  export OPENAI_API_KEY_FILE="$HOME/.openai-key"
+fi
 
 case "${1:-}" in
   --lan)   ADDR=$(ipconfig getifaddr en0 || echo 127.0.0.1) ;;
