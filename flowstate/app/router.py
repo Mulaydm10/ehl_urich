@@ -86,6 +86,28 @@ TAG = os.environ.get("FS_TAG", "_c16")
 # BMW's coverage box. Outside it we have no crowd, so we have no opinion.
 COVERAGE = (47.38, 48.03, 10.72, 11.96)
 
+# road character (Phase 2, doc 21). Descriptors only: none of these touch the
+# default flow, so today's routes cannot move. Rules fixed before the first
+# validation run (analysis/16_road_character.py tests exactly these).
+ADVENTURE_MIN_RIDES = 3          # below this demand_p90 is one or two traces
+VIEW_MIN_STOP_RIDES = 2
+VIEW_MIN_STOP_SHARE = 0.05
+VIEW_MIN_PROMINENCE_M = 50.0
+TRAFFIC_MIN_SHARE = 0.10
+TRAFFIC_MIN_TRAV = 10
+TRAFFIC_MIN_VMED_MS = 50.0 / 3.6 # a free-flowing road, not a junction
+HAZARD_MIN_RIDES = 3             # "three of the N trips", never "the crowd brakes"
+SURPRISE_MIN = float(np.log(2.0))  # the radius at least halves across one step
+SURPRISE_MIN_TRANSITIONS = 5
+CHARACTER_COLS = ("dwell_share", "reversals_km", "adventure_index", "viewpoint_candidate",
+                  "traffic_on_good_road", "hazard_rides", "rhythm_wavelength_m",
+                  "rhythm_purity")
+# what score_cells carries forward: only the columns that passed their own test
+# in doc 21. traffic_on_good_road (UNRELIABLE) and viewpoint_candidate (no
+# candidates at all) stay computable here and are NOT handed to anything else.
+SCORED_CHARACTER_COLS = ("dwell_share", "reversals_km", "adventure_index", "hazard_rides",
+                         "rhythm_wavelength_m", "rhythm_purity")
+
 
 # --------------------------------------------------------------------------
 # geometry
@@ -376,10 +398,11 @@ def score_cells(cells: pd.DataFrame, rider: Rider, z_star: float,
     stop = np.clip(cells["stop_rate"].to_numpy(dtype=float), 0.0, 1.0)
     stop = np.nan_to_num(stop, nan=0.0)
 
-    # the plan asks for dwell_share; the cell table does not carry one. The
-    # honest stand-in is the complement of flow_index — the share of
-    # traversals that did NOT get through cleanly at speed. It folds dwell
-    # and crawling together, which is the behaviour we wanted to punish.
+    # The plan asked for dwell_share. The stand-in below is the complement of
+    # flow_index — the share of traversals that did NOT get through cleanly
+    # at speed — and it stays the default. dwell_share now exists (Phase 2,
+    # doc 21) and rides along in the output via road_character(); swapping
+    # it in here would move today's routes, so that is left to Phase 3 modes.
     unflow = 1.0 - np.clip(cells["flow_index"].to_numpy(dtype=float), 0.0, 1.0)
     unflow = np.nan_to_num(unflow, nan=0.0)
 
@@ -419,7 +442,7 @@ def score_cells(cells: pd.DataFrame, rider: Rider, z_star: float,
             red_reason = np.where(m & (red_reason == ""), why, red_reason)
     flow = np.clip(flow, 0.0, 1.0)
 
-    return pd.DataFrame({
+    out = pd.DataFrame({
         "cell": cells["morton_code"].to_numpy(),
         "lat": cells["lat"].to_numpy(dtype=float),
         "lon": cells["lon"].to_numpy(dtype=float),
@@ -434,6 +457,75 @@ def score_cells(cells: pd.DataFrame, rider: Rider, z_star: float,
                           if "demand_capped" in cells.columns
                           else np.zeros(n, dtype=bool)),
     }).set_index("cell")
+    if "dwell_share" in cells.columns:          # a cell table from before Phase 2 has none
+        out = out.join(road_character(cells, osm)[list(SCORED_CHARACTER_COLS)])
+    return out
+
+
+def road_character(cells: pd.DataFrame, osm: pd.DataFrame | None = None) -> pd.DataFrame:
+    """
+    The Phase 2 road-character columns, with the rules applied. Indexed by
+    morton_code. Read alongside the flow score, never folded into it.
+
+    reversals_km          NaN on OSM residential cells: doc 20 found ride-level
+                          reversals flip sign between riders, and junctions are
+                          the obvious confound
+    adventure_index       demand_p90 / log1p(n_rides); NaN under 3 rides
+    viewpoint_candidate   >= 2 rides stopped a minute or more here, mid-ride, on
+                          >= 5% of the rides that pass, and the cell sits >= 50 m
+                          above the cells around it
+    traffic_on_good_road  >= 10% of >= 10 traversals crawl, on a cell whose median
+                          traversal is >= 50 km/h and whose demand is above median
+    hazard_rides          rides with an ABS code-3 sample here (a count, not a risk)
+    """
+    c = cells.set_index("morton_code")
+    out = pd.DataFrame(index=c.index)
+    if "dwell_share" not in c.columns:
+        return out
+    residential = (osm["red_inner_city"].reindex(c.index).fillna(False).to_numpy(dtype=bool)
+                   if osm is not None and "red_inner_city" in osm.columns
+                   else np.zeros(len(c), dtype=bool))
+    n = c["n_rides"].to_numpy(dtype=float)
+    demand = c["demand_p90"].to_numpy(dtype=float)
+    stops = c["long_stop_rides"].to_numpy(dtype=float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        adventure = np.where(n >= ADVENTURE_MIN_RIDES, demand / np.log1p(n), np.nan)
+        stop_share = np.where(n > 0, stops / n, 0.0)
+    out["dwell_share"] = c["dwell_share"].to_numpy(dtype=float)
+    out["reversals_km"] = np.where(residential, np.nan, c["reversals_km"].to_numpy(dtype=float))
+    out["adventure_index"] = adventure
+    out["viewpoint_candidate"] = ((stops >= VIEW_MIN_STOP_RIDES)
+                                  & (stop_share >= VIEW_MIN_STOP_SHARE)
+                                  & (np.nan_to_num(c["elev_prominence_m"].to_numpy(dtype=float),
+                                                   nan=-1e9) >= VIEW_MIN_PROMINENCE_M))
+    out["traffic_on_good_road"] = ((np.nan_to_num(c["traffic_share"].to_numpy(dtype=float)) >= TRAFFIC_MIN_SHARE)
+                                   & (c["traffic_trav"].to_numpy(dtype=float) >= TRAFFIC_MIN_TRAV)
+                                   & (np.nan_to_num(c["trav_v_median"].to_numpy(dtype=float)) >= TRAFFIC_MIN_VMED_MS)
+                                   & (np.nan_to_num(demand, nan=-1.0) >= np.nanmedian(demand)))
+    out["hazard_rides"] = c["abs_rides"].to_numpy(dtype=float)
+    out["rhythm_wavelength_m"] = c["rhythm_wavelength_m"].to_numpy(dtype=float)
+    out["rhythm_purity"] = c["rhythm_purity"].to_numpy(dtype=float)
+    return out[list(CHARACTER_COLS)]
+
+
+def surprise_boundaries(edges_fine: pd.DataFrame, chars: int = 16,
+                        min_n: int = SURPRISE_MIN_TRANSITIONS) -> pd.DataFrame:
+    """
+    Surprise lives on the 18-char edge table only — at 16 chars a 600 m cell
+    has no single radius and the column is NaN throughout. So read it from the
+    fine, UNSYMMETRISED edges (direction = the way riders actually went) and
+    keep, for every step between two different 16-char routing cells, the
+    sharpest tightening seen across that boundary. Indexed by (a, b).
+    """
+    e = edges_fine[(edges_fine["n_transitions"] >= min_n)
+                   & np.isfinite(edges_fine["surprise"].to_numpy(dtype=float))].copy()
+    e["a"] = e["ci"].astype(str).str.slice(0, chars)
+    e["b"] = e["cj"].astype(str).str.slice(0, chars)
+    e = e[e["a"] != e["b"]]
+    if e.empty:
+        return pd.DataFrame(columns=["surprise", "n_transitions", "radius_i", "radius_j"])
+    best = e.loc[e.groupby(["a", "b"])["surprise"].idxmax()]
+    return best.set_index(["a", "b"])[["surprise", "n_transitions", "radius_i", "radius_j"]]
 
 
 # --------------------------------------------------------------------------

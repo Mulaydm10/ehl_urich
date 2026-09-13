@@ -1,0 +1,254 @@
+{
+ "preregistered": {
+  "PRIMARY": "_c16",
+  "HALF_MIN_TRAV": 10,
+  "RELIABLE_RHO": 0.5,
+  "REDUNDANT_RHO": 0.9,
+  "RHY_HALF_MIN_RIDES": 5,
+  "RHY_PHYS_MIN_RIDES": 10,
+  "RHY_PHYS_RHO": 0.3,
+  "VIEW_GRID": "_s2",
+  "VIEW_HIT_M": 300.0,
+  "VIEW_MIN_CANDIDATES": 10,
+  "VIEW_LIFT": 2.0,
+  "VIEW_P": 0.05,
+  "VIEW_NULL_DRAWS": 5000,
+  "HAZARD_LIFT": 2.0,
+  "SURPRISE_GRID": "_s2",
+  "SURPRISE_MIN_RIDES": 5,
+  "SURPRISE_CONTROL": 0.2231,
+  "SURPRISE_LIFT": 1.5,
+  "STRATA": 5,
+  "N_BOOT": 2000,
+  "SEED": 7
+ },
+ "dwell": {
+  "_c16": {
+   "split_half": {
+    "rho": 0.503,
+    "ci": [
+     0.459,
+     0.545
+    ],
+    "n_cells": 1617
+   },
+   "rho_vs_stop_rate": 0.917,
+   "share_cells_nonzero": 0.354
+  },
+  "_s2": {
+   "split_half": {
+    "rho": 0.401,
+    "ci": [
+     0.372,
+     0.429
+    ],
+    "n_cells": 6000
+   },
+   "rho_vs_stop_rate": 0.983,
+   "share_cells_nonzero": 0.148
+  },
+  "verdict": "RELIABLE-BUT-REDUNDANT"
+ },
+ "reversals": {
+  "_c16": {
+   "split_half_masked": {
+    "rho": 0.915,
+    "ci": [
+     0.903,
+     0.927
+    ],
+    "n_cells": 1497
+   },
+   "split_half_unmasked": {
+    "rho": 0.916,
+    "ci": [
+     0.904,
+     0.927
+    ],
+    "n_cells": 1565
+   },
+   "median_residential": 4.159,
+   "median_not_residential": 2.64,
+   "n_residential": 124,
+   "n_not_residential": 2772,
+   "rho_vs_demand_not_residential": 0.551
+  },
+  "_s2": {
+   "split_half_masked": {
+    "rho": 0.818,
+    "ci": [
+     0.806,
+     0.83
+    ],
+    "n_cells": 4892
+   },
+   "split_half_unmasked": {
+    "rho": 0.819,
+    "ci": [
+     0.806,
+     0.831
+    ],
+    "n_cells": 4942
+   },
+   "median_residential": 4.029,
+   "median_not_residential": 1.92,
+   "n_residential": 133,
+   "n_not_residential": 9912,
+   "rho_vs_demand_not_residential": 0.449
+  },
+  "verdict": "RELIABLE"
+ },
+ "rhythm": {
+  "_c16": {
+   "split_half": {
+    "rho": 0.926,
+    "ci": [
+     0.91,
+     0.941
+    ],
+    "n_cells": 1592
+   },
+   "rho_wavelength_vs_radius": {
+    "rho": 0.38,
+    "ci": [
+     0.334,
+     0.422
+    ],
+    "n_cells": 1682
+   },
+   "wavelength_m_p10_p50_p90": [
+    234.272,
+    471.026,
+    853.333
+   ],
+   "cells_with_rhythm": 4800
+  },
+  "_s2": {
+   "split_half": {
+    "rho": 0.916,
+    "ci": [
+     0.904,
+     0.927
+    ],
+    "n_cells": 3683
+   },
+   "rho_wavelength_vs_radius": {
+    "rho": 0.369,
+    "ci": [
+     0.338,
+     0.399
+    ],
+    "n_cells": 3463
+   },
+   "wavelength_m_p10_p50_p90": [
+    229.543,
+    504.543,
+    853.333
+   ],
+   "cells_with_rhythm": 18573
+  },
+  "verdict": "PASS"
+ },
+ "adventure": {
+  "_c16": {
+   "rho_vs_demand": 0.887,
+   "rho_vs_rarity": 0.51,
+   "osm_snap_share_top5pct": 0.511,
+   "osm_snap_share_all": 0.639,
+   "n_cells": 4434
+  },
+  "_s2": {
+   "rho_vs_demand": 0.923,
+   "rho_vs_rarity": 0.388,
+   "osm_snap_share_top5pct": 0.547,
+   "osm_snap_share_all": 0.659,
+   "n_cells": 19350
+  },
+  "verdict": "PASS"
+ },
+ "viewpoints": {
+  "grid": "_s2",
+  "osm_viewpoints_in_box": 1001,
+  "n_candidates": 0,
+  "candidate_hit_rate": null,
+  "null_hit_rate_mean": null,
+  "lift": null,
+  "p_null_ge_obs": null,
+  "contrast_stops_not_high": {
+   "n": 45,
+   "hit_rate": 0.067
+  },
+  "contrast_high_no_stops": {
+   "n": 840,
+   "hit_rate": 0.071
+  },
+  "all_cells_hit_rate": 0.028,
+  "cells_with_any_long_stop": 356,
+  "verdict": "INSUFFICIENT-DATA"
+ },
+ "traffic": {
+  "_c16": {
+   "split_half": {
+    "rho": 0.357,
+    "ci": [
+     0.286,
+     0.425
+    ],
+    "n_cells": 1507
+   },
+   "cells_flagged": 6,
+   "share_cells_traffic_gt0": 0.071,
+   "flagged_osm_class": {
+    "secondary": 3,
+    "tertiary": 2,
+    "no match": 1
+   }
+  },
+  "_s2": {
+   "split_half": {
+    "rho": 0.32,
+    "ci": [
+     0.279,
+     0.358
+    ],
+    "n_cells": 4682
+   },
+   "cells_flagged": 36,
+   "share_cells_traffic_gt0": 0.064,
+   "flagged_osm_class": {
+    "no match": 10,
+    "secondary": 8,
+    "primary": 4,
+    "tertiary": 4,
+    "motorway": 2
+   }
+  },
+  "verdict": "UNRELIABLE"
+ },
+ "hazard": {
+  "grid": "_c16",
+  "n_cells": 1618,
+  "cells_abs_in_both_halves": 51,
+  "cells_abs_in_one_half": 259,
+  "mh_risk_ratio": 2.885,
+  "ci": [
+   2.089,
+   3.687
+  ],
+  "verdict": "REPEATABLE"
+ },
+ "surprise": {
+  "grid": "_s2",
+  "n_edges_tightening": 1041,
+  "n_edges_stable": 5940,
+  "brake_share_tightening": 0.059,
+  "brake_share_stable": 0.018,
+  "crude_ratio": 3.247,
+  "radius_stratified_ratio": 1.865,
+  "ci": [
+   1.435,
+   2.373
+  ],
+  "verdict": "PASS"
+ }
+}

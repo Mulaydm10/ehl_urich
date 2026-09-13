@@ -95,9 +95,16 @@ if __name__ == "__main__":
     joy = S._load_joy()
     print(f"    {'none — run analysis/15_joy_meter.py' if joy is None else str(len(joy['rides'])) + ' rides'}")
 
-    print("[5] pre-solving the presets")
+    print("[5] road character (analysis/10 + 16 outputs)")
+    character = S._load_character()
+    print(f"    gems {0 if character['gems'] is None else len(character['gems'])}, "
+          f"surprise boundaries {0 if character['surprise'] is None else len(character['surprise'])}, "
+          f"verdicts {'none - run analysis/16_road_character.py' if character['test'] is None else 'yes'}")
+
+    print("[6] pre-solving the presets")
     payload = {"cells": cells, "edges": edges, "osm": osm, "riders": riders,
-               "basemap": basemap, "precomputed": {}, "joy": joy}
+               "basemap": basemap, "precomputed": {}, "joy": joy,
+               "character": character}
     S._S = {**payload, "graphs": {}, "source": "bake(build)",
             "loaded_s": 0.0}
 

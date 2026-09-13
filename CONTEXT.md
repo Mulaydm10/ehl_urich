@@ -22,7 +22,7 @@ The build now follows **`FLOWSTATE_Execution_Plan.docx`** (Parts A–E). Phase s
 | 5 rebuild pitch | `docs/06_PITCH.md` + `docs/10_LIVE_DEMO.md` | **DONE** — both rewritten from doc 18, beats verified against the running service |
 | 6 bake + rehearse | `data/cache/demo.pkl` | bake **DONE**; rehearsal not started |
 | + external sources | OSM, not in the original plan | **DONE** |
-| **FEATURES.md build** | phases 0-5 in **doc 19** | **Phases 0-1 DONE** — Joy Meter **WEAK**, grip-budget claim **REJECTED** (doc 20); **Phase 2 road character NEXT** |
+| **FEATURES.md build** | phases 0-5 in **doc 19** | **Phases 0-2 DONE** — Joy Meter **WEAK**, grip-budget claim **REJECTED** (doc 20); road character (doc 21): rhythm, reversals, adventure **pass**, hazard **repeatable**, surprise **pass** (both in `explain()` as safety readout), dwell **redundant**, traffic **unreliable**, viewpoints **no data**; default route unchanged; **Phase 3 riders + modes NEXT** |
 
 Beyond the plan, also done: `app/service.py` (the API the UI calls),
 `analysis/13_osm_layer.py`, `analysis/14_bake_demo.py`, `run_demo.sh`.
@@ -30,7 +30,7 @@ Beyond the plan, also done: `app/service.py` (the API the UI calls),
 **Phase 1→2→3 is a strict serial chain and is the whole submission.** Phases 0, 3, 5, 6 are
 never to be cut; cut order if short is surprise index, then Phase 4, then peak-end.
 
-**The authoritative record is docs 13-20** (19 = the FEATURES.md phase plan — read it before building anything; 20 = Phase 1 Joy Meter results) — 13 (phases 0-1), 14 (the router), 15 (OSM),
+**The authoritative record is docs 13-21** (19 = the FEATURES.md phase plan — read it before building anything; 20 = Phase 1 Joy Meter results; 21 = Phase 2 road character columns) — 13 (phases 0-1), 14 (the router), 15 (OSM),
 16 (the loop, the API, the bake), 17 (the ROUTE tab), 18 (the pitch audit), 19 (the feature phases). They record what was measured, which plan claims survived
 checking and which did not. Read them before quoting any number.
 
@@ -39,7 +39,8 @@ checking and which did not. Read them before quoting any number.
 The full package was recovered and extracted on this Mac:
 `flowstate/data/raw/salvaged/` — **trips-samples-2 complete at 8,000/8,000 rides**,
 trips-samples-1 partial at 1,469. 1.7 GB, gitignored, stays on this machine.
-Rebuild the cell table in 13.8 s and the graph in 8.7 s (commands in doc 13).
+Rebuild the cell table in 24 s per grid (13.8 s before the Phase 2 columns) and the graph in 8.7 s
+(commands in docs 13 and 21).
 
 ## The challenge
 
@@ -128,7 +129,7 @@ One curve produces both **Fun Score** and **Rider Safety**.
 ## The demo runs off a bake, not the repo
 
 **A fresh clone cannot run a demo.** The lake and every derived parquet are gitignored and live
-only on this Mac. `data/cache/demo.pkl` (5.2 MB) is the freeze artefact: scored cells, edges, the
+only on this Mac. `data/cache/demo.pkl` (6.1 MB) is the freeze artefact: scored cells, edges, the
 OSM join, calibrated riders, a 17,345-way offline road basemap, and 21 pre-solved presets.
 `service.init()` loads it in **12 ms**; a dial change costs **20-37 ms**.
 **Rebake after any change to the router, the cell table or the OSM layer:**

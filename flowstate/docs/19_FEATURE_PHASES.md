@@ -87,7 +87,15 @@ Run the same meter on user C: a second human is the only out-of-sample check ava
 
 ## Phase 2 — road character columns  (Layer 2)
 
-All new per-cell columns in `analysis/10_crowd_layer.py` (13.8 s rebuild), read by
+> **DONE — doc 21.** Split-half reliability across disjoint rides (the lake has no rider ids) plus
+> a physical or external test per column, all pre-registered. **Pass:** FFT rhythm (ρ 0.93, vs
+> radius 0.38), cell reversals/km (ρ 0.92), adventure index (but ≈ demand, ρ 0.89). **Readout:**
+> hazard REPEATABLE (RR 2.89) and surprise PASS (braking ratio 1.87, radius-stratified), both in
+> `explain()` as safety lines. **Not usable:** dwell_share redundant with stop_rate (0.92), traffic
+> UNRELIABLE (0.36), viewpoints INSUFFICIENT-DATA (0 candidates: trips end where riders stop).
+> Gem pool exposed, 43/100 routable for user A. Default route identical; old grid columns identical.
+
+All new per-cell columns in `analysis/10_crowd_layer.py` (13.8 s rebuild, 24 s after), read by
 `router.score_cells`. **Scoring only; the default route must not change.**
 
 | Feature | Column / use |

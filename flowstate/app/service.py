@@ -81,6 +81,8 @@ def init(bake: Path | None = None, force_parquet: bool = False) -> dict:
         _S = {**d, "graphs": {}, "source": f"bake {bake.name}"}
         if _S.get("joy") is None:               # a bake from before Phase 1
             _S["joy"] = _load_joy()
+        if _S.get("character") is None:         # a bake from before Phase 2
+            _S["character"] = _load_character()
     else:
         cells = R.load_cells()
         osm = R.load_osm()
@@ -88,7 +90,7 @@ def init(bake: Path | None = None, force_parquet: bool = False) -> dict:
         _S = {"cells": cells, "edges": R.load_edges(), "osm": osm,
               "riders": _build_riders(cells), "basemap": None,
               "precomputed": {}, "graphs": {}, "source": "parquet",
-              "joy": _load_joy()}
+              "joy": _load_joy(), "character": _load_character()}
 
     _S["loaded_s"] = time.time() - t0
     return status()
@@ -101,7 +103,10 @@ def status() -> dict:
             "riders": len(s["riders"]), "osm": s["osm"] is not None,
             "basemap_ways": (len(s["basemap"]) if s.get("basemap") else 0),
             "precomputed": len(s.get("precomputed", {})),
-            "joy_rides": (len(s["joy"]["rides"]) if s.get("joy") else 0)}
+            "joy_rides": (len(s["joy"]["rides"]) if s.get("joy") else 0),
+            "gems": (0 if (s.get("character") or {}).get("gems") is None
+                     else len(s["character"]["gems"])),
+            "road_character": "dwell_share" in s["cells"].columns}
 
 
 def _need() -> dict:
@@ -239,11 +244,13 @@ def _pack(r, g, rider_key: str, z_star: float) -> dict:
             "summary": summary, "rider": rider_key, "z_star": float(z_star),
             "explain": explain(summary, r.summary.get("refusals", []),
                                _need()["riders"][rider_key]["rider"], z_star,
-                               _need()["riders"][rider_key]["grip_p95"])}
+                               _need()["riders"][rider_key]["grip_p95"],
+                               route_cells=list(r.cells))}
 
 
 def explain(summary: dict, refusals: list, rider, z_star: float,
-            rider_grip: float | None = None) -> list[str]:
+            rider_grip: float | None = None,
+            route_cells: list | None = None) -> list[str]:
     """
     Sentences a human can read out. Explainability is a judged criterion, so
     the reasons live next to the numbers rather than in a slide.
@@ -279,6 +286,8 @@ def explain(summary: dict, refusals: list, rider, z_star: float,
         out += [f"    {x['reason']}" for x in refusals[:3]]
     else:
         out.append("Nothing on this route crosses your safety gate.")
+    if route_cells:
+        out += safety_readout(route_cells)
     if summary.get("imputed_cells"):
         out.append(f"{int(summary['imputed_cells'])} cells had no corner in the "
                    f"crowd data and were treated as straight, not as missing.")
@@ -410,3 +419,115 @@ def ride_joy(trip_id: str) -> dict:
     return {"ok": True, "rider": r["rider"], "trip_id": str(trip_id),
             **{k: (float(r[k]) if pd.notna(r[k]) else None) for k in keys},
             "verdict": j["test"].get(r["rider"], {}).get("verdict")}
+
+
+# --------------------------------------------------------------------------
+# road character — Phase 2, doc 21. Safety readout and the gem pool.
+# Nothing here changes a route: it reads what the route already is.
+# --------------------------------------------------------------------------
+
+GEMS_CSV = ROOT / "analysis" / "out" / "crowd_gems_s2.csv"
+CHARACTER_TEST = ROOT / "analysis" / "out" / "road_character_test.json"
+
+
+def _load_character() -> dict:
+    """Gems, the 18-char surprise boundaries, and the pre-registered verdicts."""
+    import json
+    out = {"gems": None, "surprise": None, "test": None}
+    if GEMS_CSV.exists():
+        out["gems"] = pd.read_csv(GEMS_CSV, dtype={"morton_code": str})
+    fine = R.OUT / "graph_edges_s2.parquet"
+    if fine.exists():
+        out["surprise"] = R.surprise_boundaries(R.load_edges("_s2", symmetrise=False))
+    if CHARACTER_TEST.exists():
+        out["test"] = json.loads(CHARACTER_TEST.read_text())
+    return out
+
+
+def _verdict(name: str) -> str | None:
+    t = (_need().get("character") or {}).get("test") or {}
+    return (t.get(name) or {}).get("verdict")
+
+
+def safety_readout(route_cells: list) -> list[str]:
+    """
+    What the crowd's own events say about the road under this route, read out
+    beside the fun score and never inside it.
+
+    Hard braking is a COUNT of trips, always worded as one ("3 of the 12 trips
+    that ride this stretch"), because the lake has no rider ids and a handful
+    of events is not a crowd. Whether it may also be called recurring is
+    decided by analysis/16_road_character.py, not here.
+
+    Tightening bends are shown only if surprise passed its braking test there.
+    """
+    s = _need()
+    c = s["cells"]
+    if not route_cells or "abs_rides" not in c.columns:
+        return []
+    if "_cidx" not in s:
+        s["_cidx"] = c.set_index("morton_code")
+    on = s["_cidx"].reindex(route_cells)
+    lat = on["lat"].to_numpy(dtype=float)
+    lon = on["lon"].to_numpy(dtype=float)
+    step = np.r_[0.0, np.nan_to_num(R._haversine_m(lat[:-1], lon[:-1], lat[1:], lon[1:]))]
+    km = np.cumsum(step) / 1000.0
+
+    out = []
+    hz = np.nan_to_num(on["abs_rides"].to_numpy(dtype=float))
+    nr = np.nan_to_num(on["n_rides"].to_numpy(dtype=float))
+    seen, picks = set(), []
+    for i in np.argsort(-hz, kind="stable"):
+        if hz[i] < R.HAZARD_MIN_RIDES or len(picks) >= 2:
+            break
+        if route_cells[i] not in seen:
+            seen.add(route_cells[i])
+            picks.append(i)
+    # REPEATABLE is a population result (doc 21), so the sentence claims it for
+    # stretches like this one, never for this particular cell
+    tail = ("across the crowd data, stretches where this happens tend to see it "
+            "again in other trips." if _verdict("hazard") == "REPEATABLE"
+            else "a count of what happened, not a prediction.")
+    for i in sorted(picks):
+        out.append(f"Hard braking around km {km[i]:.0f}: {int(hz[i])} of the {int(nr[i])} "
+                   f"trips that ride this stretch set off the ABS hard-braking code here - {tail}")
+
+    sb = (s.get("character") or {}).get("surprise")
+    if sb is not None and len(sb) and _verdict("surprise") == "PASS":
+        hits = []
+        for k in range(len(route_cells) - 1):
+            key = (route_cells[k], route_cells[k + 1])
+            if key in sb.index:
+                row = sb.loc[key]
+                if float(row["surprise"]) >= R.SURPRISE_MIN:
+                    hits.append((float(row["surprise"]), k + 1, row))
+        for _, k, row in sorted(sorted(hits, key=lambda h: -h[0])[:2], key=lambda h: h[1]):
+            out.append(f"Tightening bend around km {km[k]:.0f}: the corner radius drops from "
+                       f"{float(row['radius_i']):.0f} m to {float(row['radius_j']):.0f} m in one "
+                       f"step. Shown for safety; it is not part of the fun score.")
+    return out
+
+
+def gem_pool(rider_key: str = "userA", z_star: float = 0.5, n: int = 20) -> list[dict]:
+    """
+    The crowd's best corners (crowd_gems_s2.csv, already ranked) as candidate
+    turnaround points for Phase 4's arc loop. A gem is `routable` when its
+    16-char routing cell is a node of this rider's graph and is not gated.
+    """
+    s = _need()
+    gems = (s.get("character") or {}).get("gems")
+    if gems is None:
+        return []
+    g = _graph(rider_key, z_star)
+    sc = g.scored
+    out = []
+    for r in gems.head(n).itertuples(index=False):
+        c16 = str(r.morton_code)[:16]
+        known = c16 in sc.index
+        gated = bool(sc.at[c16, "gated"]) if known else None
+        out.append({"lat": float(r.lat), "lon": float(r.lon), "gem_score": float(r.gem_score),
+                    "demand_p90": float(r.demand_p90), "n_rides": int(r.n_rides),
+                    "cell16": c16, "in_graph": c16 in g.index, "gated": gated,
+                    "flow": float(sc.at[c16, "flow"]) if known else None,
+                    "routable": bool(c16 in g.index and known and not gated)})
+    return out
