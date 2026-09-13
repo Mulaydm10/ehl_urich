@@ -19,6 +19,12 @@ export FLOWSTATE_REQUIRE_REAL="${FLOWSTATE_REQUIRE_REAL:-1}"
 # key must stay here — it is never sent to the phone and never in the APK.
 # Without it /api/assistant/status reports disabled and the app answers
 # on-device instead of inventing numbers.
+#
+# The same key also powers live speech-to-speech: the phone asks this server
+# for a client secret that lasts about a minute and then talks WebRTC straight
+# to OpenAI, so the audio never crosses the tailnet. OPENAI_REALTIME=0 turns
+# that off and leaves the typed assistant alone; OPENAI_REALTIME_MODEL and
+# OPENAI_REALTIME_VOICE override the defaults (gpt-realtime, alloy).
 
 case "${1:-}" in
   --lan)   ADDR=$(ipconfig getifaddr en0 || echo 127.0.0.1) ;;

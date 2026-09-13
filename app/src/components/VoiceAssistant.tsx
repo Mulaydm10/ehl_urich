@@ -1,25 +1,34 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mic, MicOff, Sparkles, X } from 'lucide-react'
 import { useAppState } from '../state/AppState'
 import { useSpeech } from './useSpeech'
 import { VOICE_EXAMPLES, resolveVoice } from '../services/voiceIntents'
 import {
+  type AssistantAction,
   type AssistantStatus,
   askAssistant,
   getAssistantStatus,
   routeForScreen,
   setPendingPlan,
 } from '../services/assistant'
+import {
+  type RealtimeHandle,
+  type RealtimeState,
+  realtimeSupported,
+  startRealtime,
+} from '../services/realtime'
 
 /**
  * Hands-free assistant. Tap the mic, speak, and the answer is spoken back.
  *
- * When the backend has an OpenAI key it does the thinking: the model calls the
- * app's own functions (plan a route, read the bike, open a screen) and the
- * reply can navigate the app or switch bikes. Without a key, or with the
- * backend unreachable, `resolveVoice` answers on-device from data already
- * loaded, so the panel never invents numbers.
+ * Three tiers, best first, each falling back to the next:
+ *   1. OpenAI Realtime - a live audio session; the rider talks, the model
+ *      talks back and calls the app's own functions while it does.
+ *   2. The typed cloud assistant - same model family, same tools, with the
+ *      device reading the answer out.
+ *   3. resolveVoice on-device, from data already loaded, so the panel never
+ *      invents numbers when the backend is unreachable.
  */
 export function VoiceAssistant() {
   const navigate = useNavigate()
@@ -33,6 +42,9 @@ export function VoiceAssistant() {
   const [usedCloud, setUsedCloud] = useState(false)
   const [cloudFailed, setCloudFailed] = useState(false)
   const [typed, setTyped] = useState('')
+  const [live, setLive] = useState<RealtimeState | null>(null)
+  const [liveDetail, setLiveDetail] = useState<string | null>(null)
+  const liveRef = useRef<RealtimeHandle | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -43,6 +55,30 @@ export function VoiceAssistant() {
       alive = false
     }
   }, [online])
+
+  const applyActions = useCallback(
+    (actions: AssistantAction[]) => {
+      let go: string | null = null
+      let planned = false
+      for (const action of actions) {
+        if (action.type === 'select_bike') selectBike(action.bikeId)
+        if (action.type === 'show_route') {
+          setPendingPlan(action.plan)
+          planned = true
+        }
+        if (action.type === 'navigate') go = routeForScreen(action.screen) ?? go
+      }
+      // A fresh plan wins over whichever screen the model asked for: Thrill is
+      // the only screen that can draw it, and being told about a route that is
+      // nowhere on screen is worse than ignoring the model's choice.
+      if (planned) go = '/thrill'
+      if (go) {
+        setOpen(false)
+        navigate(go)
+      }
+    },
+    [navigate, selectBike],
+  )
 
   const runLocal = useCallback(
     (text: string) => {
@@ -84,30 +120,62 @@ export function VoiceAssistant() {
       setUsedCloud(true)
       setReply(answer.say)
       speak(answer.say)
-      let go: string | null = null
-      let planned = false
-      for (const action of answer.actions) {
-        if (action.type === 'select_bike') selectBike(action.bikeId)
-        if (action.type === 'show_route') {
-          setPendingPlan(action.plan)
-          planned = true
-        }
-        if (action.type === 'navigate') go = routeForScreen(action.screen) ?? go
-      }
-      // A fresh plan wins over whichever screen the model asked for: Thrill is
-      // the only screen that can draw it, and being told about a route that is
-      // nowhere on screen is worse than ignoring the model's choice.
-      if (planned) go = '/thrill'
-      if (go) {
-        setOpen(false)
-        navigate(go)
-      }
+      applyActions(answer.actions)
     },
-    [cloud, bike, bikes, online, engine, speak, navigate, selectBike, runLocal],
+    [cloud, bike, bikes, online, engine, speak, runLocal, applyActions],
   )
 
+  const canGoLive = !!cloud?.realtime?.enabled && realtimeSupported()
+
+  const endLive = useCallback(() => {
+    liveRef.current?.stop()
+    liveRef.current = null
+    setLive(null)
+  }, [])
+
+  // Hanging up on unmount matters: an open session holds the microphone and
+  // keeps billing for it.
+  useEffect(() => endLive, [endLive])
+
+  const beginLive = useCallback(async () => {
+    setReply(null)
+    setHeard(null)
+    setLiveDetail(null)
+    setLive('connecting')
+    const handle = await startRealtime(
+      {
+        bikeId: bike?.id ?? null,
+        bikes: bikes.map((b) => ({ id: b.id, model: b.model })),
+        online,
+        engine,
+      },
+      {
+        onState: (next, detail) => {
+          setLive(next === 'closed' ? null : next)
+          if (detail) setLiveDetail(detail)
+        },
+        onHeard: setHeard,
+        onReply: (text) => {
+          // The audio is already playing from OpenAI; this is just the caption.
+          setUsedCloud(true)
+          setCloudFailed(false)
+          setReply(text)
+        },
+        onActions: applyActions,
+      },
+    )
+    liveRef.current = handle
+  }, [bike, bikes, online, engine, applyActions])
+
   const listening = state === 'listening'
+  const micOn = listening || live === 'live' || live === 'connecting'
+
   const toggleMic = () => {
+    if (canGoLive) {
+      if (liveRef.current || live === 'connecting') endLive()
+      else void beginLive()
+      return
+    }
     if (listening) stop()
     else {
       setReply(null)
@@ -127,6 +195,12 @@ export function VoiceAssistant() {
         className="absolute bottom-[104px] right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full shadow-[0_10px_28px_rgba(0,0,0,0.45)]"
         style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
       >
+        {live === 'live' ? (
+          <span
+            className="pointer-events-none absolute inset-0 rounded-full"
+            style={{ border: '2px solid var(--accent)', animation: 'pulse 1100ms ease-in-out infinite alternate' }}
+          />
+        ) : null}
         <Mic size={22} strokeWidth={1.9} />
       </button>
     )
@@ -154,28 +228,36 @@ export function VoiceAssistant() {
         <div className="mt-6 flex flex-col items-center">
           <button
             type="button"
-            aria-label={listening ? 'Stop listening' : 'Start listening'}
-            aria-pressed={listening}
-            disabled={!supported}
+            aria-label={micOn ? 'Stop listening' : 'Start listening'}
+            aria-pressed={micOn}
+            disabled={!supported && !canGoLive}
             onClick={toggleMic}
             className="relative flex h-[84px] w-[84px] items-center justify-center rounded-full disabled:opacity-40"
             style={{
-              background: listening ? 'var(--accent)' : 'var(--surface-raised)',
-              color: listening ? 'var(--accent-contrast)' : '#F1F2F3',
+              background: micOn ? 'var(--accent)' : 'var(--surface-raised)',
+              color: micOn ? 'var(--accent-contrast)' : '#F1F2F3',
             }}
           >
-            {listening ? (
+            {micOn ? (
               <span
                 className="pointer-events-none absolute inset-0 rounded-full"
                 style={{ border: '2px solid var(--accent)', animation: 'pulse 1100ms ease-in-out infinite alternate' }}
               />
             ) : null}
-            {supported ? <Mic size={30} strokeWidth={1.7} /> : <MicOff size={30} strokeWidth={1.7} />}
+            {supported || canGoLive ? <Mic size={30} strokeWidth={1.7} /> : <MicOff size={30} strokeWidth={1.7} />}
           </button>
 
           <p className="mt-4 text-center text-[12px] leading-relaxed text-ash">
             {thinking
               ? 'Thinking\u2026'
+              : live === 'connecting'
+              ? 'Opening the live voice link\u2026'
+              : live === 'live'
+              ? 'Live \u2014 just talk. Tap to hang up.'
+              : live === 'error'
+              ? liveDetail ?? 'Live voice failed.'
+              : canGoLive
+              ? 'Tap to talk live'
               : state === 'unsupported'
               ? 'Speech recognition is unavailable on this device.'
               : state === 'denied'
@@ -224,7 +306,7 @@ export function VoiceAssistant() {
           </div>
         ) : null}
 
-        {!heard && !listening ? (
+        {!heard && !listening && !live ? (
           <ul className="mt-6 space-y-2">
             {VOICE_EXAMPLES.map((example) => (
               <li key={example}>
@@ -247,7 +329,11 @@ export function VoiceAssistant() {
             ? 'On-device answers \u00b7 cloud assistant not configured on the server'
             : cloudFailed
               ? 'Cloud assistant unreachable \u00b7 answered on-device'
-              : `Cloud assistant \u00b7 ${cloud.model ?? 'openai'} \u00b7 ${usedCloud ? 'answered live' : 'ready'}`}
+              : live === 'live'
+                ? `Realtime voice \u00b7 ${cloud.realtime?.model ?? 'openai'} \u00b7 speaking live`
+                : `Cloud assistant \u00b7 ${cloud.model ?? 'openai'} \u00b7 ${
+                    canGoLive ? 'realtime voice ready' : usedCloud ? 'answered live' : 'ready'
+                  }`}
         </p>
       </section>
     </div>

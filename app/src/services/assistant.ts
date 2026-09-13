@@ -21,6 +21,8 @@ export interface AssistantStatus {
   engine: string
   tools: string[]
   reason?: string
+  /** Absent on older backends, which only have the typed assistant. */
+  realtime?: { enabled: boolean; model: string | null; voice: string }
 }
 
 export interface AssistantReply {

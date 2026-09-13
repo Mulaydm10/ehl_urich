@@ -36,6 +36,19 @@ DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 MAX_TOOL_ROUNDS = 4
 REQUEST_TIMEOUT = 45
 
+# Realtime speech-to-speech. The phone holds the audio leg directly with
+# OpenAI over WebRTC, so the key must never leave this process: the app asks
+# for a short-lived client secret here and uses that instead.
+REALTIME_SESSIONS_URL = os.environ.get(
+    "OPENAI_REALTIME_SESSIONS_URL", "https://api.openai.com/v1/realtime/client_secrets",
+)
+REALTIME_CALLS_URL = os.environ.get(
+    "OPENAI_REALTIME_CALLS_URL", "https://api.openai.com/v1/realtime/calls",
+)
+REALTIME_MODEL = os.environ.get("OPENAI_REALTIME_MODEL", "gpt-realtime")
+REALTIME_VOICE = os.environ.get("OPENAI_REALTIME_VOICE", "alloy")
+REALTIME_DISABLED = os.environ.get("OPENAI_REALTIME", "").lower() in ("0", "off", "false")
+
 SYSTEM_PROMPT = """You are the ride assistant inside a BMW Motorrad rider app.
 
 You speak to a motorcyclist who is usually helmeted and moving, so answer in one
@@ -329,6 +342,27 @@ TOOLS: list[dict[str, Any]] = [
 ]
 
 
+def _realtime_tools() -> list[dict[str, Any]]:
+    """The same tools, in the flat shape the realtime API expects."""
+    return [{"type": "function", **t["function"]} for t in TOOLS]
+
+
+def _actions_for(name: str, result: Any) -> list[dict[str, Any]]:
+    """What the app should do after a tool ran. Shared by the chat loop and
+    the realtime session so voice and text drive the UI identically."""
+    if not isinstance(result, dict) or not result.get("ok"):
+        return []
+    if name in ("plan_route", "plan_loop"):
+        # The model only gets a truncated summary; the app gets the whole plan
+        # so it can draw the route it was just told about.
+        return [{"type": "show_route", "plan": result}]
+    if name == "open_screen":
+        return [{"type": "navigate", "screen": result["screen"]}]
+    if name == "select_bike":
+        return [{"type": "select_bike", "bikeId": result["bike"]["id"]}]
+    return []
+
+
 # --------------------------------------------------------------------------
 # tool execution against the same engine + cloud the REST API uses
 # --------------------------------------------------------------------------
@@ -362,6 +396,11 @@ class Assistant:
             "engine": self.engine_kind,
             "tools": [t["function"]["name"] for t in TOOLS],
             "reason": None if self.enabled() else "OPENAI_API_KEY is not set on the server",
+            "realtime": {
+                "enabled": self.enabled() and not REALTIME_DISABLED,
+                "model": REALTIME_MODEL if self.enabled() and not REALTIME_DISABLED else None,
+                "voice": REALTIME_VOICE,
+            },
         }
 
     # -- tools -------------------------------------------------------------
@@ -480,6 +519,19 @@ class Assistant:
             return {"error": "No such bike."}
         return {"ok": True, "bike": bike}
 
+    def run_tool(self, name: str, args: dict[str, Any]) -> dict[str, Any]:
+        """Execute one tool by name. Used by both the chat loop and the
+        realtime session, whose tool calls arrive from the phone."""
+        handler = self.handlers().get(name)
+        if handler is None:
+            return {"ok": False, "result": {"error": f"unknown tool {name}"}, "actions": []}
+        try:
+            result = handler(args)
+        except Exception as exc:  # noqa: BLE001 - report, don't crash the turn
+            return {"ok": False, "result": {"error": f"{type(exc).__name__}: {exc}"},
+                    "actions": []}
+        return {"ok": True, "result": result, "actions": _actions_for(name, result)}
+
     def handlers(self) -> dict[str, Callable[[dict[str, Any]], Any]]:
         return {
             "plan_route": self.t_plan_route,
@@ -498,6 +550,68 @@ class Assistant:
             "handoff_route": self.t_handoff_route,
             "open_screen": self.t_open_screen,
             "select_bike": self.t_select_bike,
+        }
+
+    # -- realtime voice ----------------------------------------------------
+
+    def realtime_session(self, context: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Mint a short-lived client secret for a speech-to-speech session.
+
+        The phone negotiates WebRTC straight with OpenAI using this secret, so
+        audio never round-trips through the Mac. The tools and instructions are
+        pinned here, not on the phone, so a client cannot widen what the model
+        may do.
+        """
+        key = self.api_key()
+        if not key:
+            return {"ok": False, "error": "no_key",
+                    "say": "The cloud assistant is not configured on the server."}
+        if REALTIME_DISABLED:
+            return {"ok": False, "error": "realtime_disabled",
+                    "say": "Live voice is switched off on the server."}
+
+        instructions = SYSTEM_PROMPT
+        if context:
+            instructions += "\n\nCurrent app context: " + json.dumps(context)[:1500]
+        body = json.dumps({
+            "session": {
+                "type": "realtime",
+                "model": REALTIME_MODEL,
+                "instructions": instructions,
+                "tools": _realtime_tools(),
+                "tool_choice": "auto",
+                "audio": {
+                    "input": {"transcription": {"model": "whisper-1"}},
+                    "output": {"voice": REALTIME_VOICE},
+                },
+            },
+        }).encode()
+        req = urllib.request.Request(
+            REALTIME_SESSIONS_URL, data=body,
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
+                data = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            return {"ok": False, "error": f"openai_http_{exc.code}",
+                    "detail": exc.read().decode()[:300],
+                    "say": "I couldn't start live voice."}
+        except Exception as exc:  # noqa: BLE001 - network/timeout are equivalent here
+            return {"ok": False, "error": type(exc).__name__,
+                    "say": "I couldn't start live voice."}
+
+        secret = data.get("value")
+        if not secret:
+            return {"ok": False, "error": "no_client_secret",
+                    "say": "I couldn't start live voice."}
+        return {
+            "ok": True,
+            "client_secret": secret,
+            "expires_at": data.get("expires_at"),
+            "model": REALTIME_MODEL,
+            "voice": REALTIME_VOICE,
+            "calls_url": REALTIME_CALLS_URL,
         }
 
     # -- OpenAI ------------------------------------------------------------
@@ -574,15 +688,7 @@ class Assistant:
                     except Exception as exc:  # noqa: BLE001 - report, don't crash the turn
                         result = {"error": f"{type(exc).__name__}: {exc}"}
                 used.append(name)
-                if (name in ("plan_route", "plan_loop")
-                        and isinstance(result, dict) and result.get("ok")):
-                    # The model only gets a truncated summary; the app gets the
-                    # whole plan so it can draw the route it was just told about.
-                    actions.append({"type": "show_route", "plan": result})
-                if name == "open_screen" and isinstance(result, dict) and result.get("ok"):
-                    actions.append({"type": "navigate", "screen": result["screen"]})
-                if name == "select_bike" and isinstance(result, dict) and result.get("ok"):
-                    actions.append({"type": "select_bike", "bikeId": result["bike"]["id"]})
+                actions.extend(_actions_for(name, result))
                 messages.append({
                     "role": "tool",
                     "tool_call_id": call["id"],

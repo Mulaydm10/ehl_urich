@@ -41,6 +41,9 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- WebRTC switches the device into communication audio mode for the
+         realtime voice session. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <!-- Bike link (BLE to the TFT / ConnectedRide accessories). Android 12+ -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />

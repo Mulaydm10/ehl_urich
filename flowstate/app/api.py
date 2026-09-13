@@ -172,6 +172,15 @@ class AssistantReq(BaseModel):
     context: dict | None = None
 
 
+class RealtimeSessionReq(BaseModel):
+    context: dict | None = None
+
+
+class ToolReq(BaseModel):
+    name: str
+    args: dict | None = None
+
+
 class StartRideReq(BaseModel):
     bikeId: str
     title: str = ""
@@ -209,6 +218,22 @@ def assistant_status() -> JSONResponse:
 def assistant_ask(req: AssistantReq) -> JSONResponse:
     res = ASSISTANT.ask(req.text, req.context)
     return JSONResponse(_clean(res), status_code=200 if res.get("ok") else 503)
+
+
+@app.post("/api/assistant/realtime")
+def assistant_realtime(req: RealtimeSessionReq) -> JSONResponse:
+    """Short-lived client secret for a speech-to-speech session. The real key
+    never leaves this server; the phone talks WebRTC to OpenAI with this."""
+    res = ASSISTANT.realtime_session(req.context)
+    return JSONResponse(_clean(res), status_code=200 if res.get("ok") else 503)
+
+
+@app.post("/api/assistant/tool")
+def assistant_tool(req: ToolReq) -> JSONResponse:
+    """Run one assistant tool. The realtime model's function calls arrive on
+    the phone, so they are executed here against the same engine and cloud."""
+    res = ASSISTANT.run_tool(req.name, req.args or {})
+    return JSONResponse(_clean(res), status_code=200)
 
 
 # --------------------------------------------------------------------------
