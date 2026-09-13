@@ -83,6 +83,8 @@ def init(bake: Path | None = None, force_parquet: bool = False) -> dict:
             _S["joy"] = _load_joy()
         if _S.get("character") is None:         # a bake from before Phase 2
             _S["character"] = _load_character()
+        if _S.get("riders_modes") is None:      # a bake from before Phase 3
+            _S["riders_modes"] = _load_riders_modes()
     else:
         cells = R.load_cells()
         osm = R.load_osm()
@@ -90,7 +92,8 @@ def init(bake: Path | None = None, force_parquet: bool = False) -> dict:
         _S = {"cells": cells, "edges": R.load_edges(), "osm": osm,
               "riders": _build_riders(cells), "basemap": None,
               "precomputed": {}, "graphs": {}, "source": "parquet",
-              "joy": _load_joy(), "character": _load_character()}
+              "joy": _load_joy(), "character": _load_character(),
+              "riders_modes": _load_riders_modes()}
 
     _S["loaded_s"] = time.time() - t0
     return status()
@@ -106,7 +109,8 @@ def status() -> dict:
             "joy_rides": (len(s["joy"]["rides"]) if s.get("joy") else 0),
             "gems": (0 if (s.get("character") or {}).get("gems") is None
                      else len(s["character"]["gems"])),
-            "road_character": "dwell_share" in s["cells"].columns}
+            "road_character": "dwell_share" in s["cells"].columns,
+            "riders_modes": s.get("riders_modes") is not None}
 
 
 def _need() -> dict:
@@ -123,9 +127,19 @@ def _build_riders(cells: pd.DataFrame) -> dict:
     r = R.calibrate_rider(corners, cells, "User A - all rides")
     out["userA"] = {"rider": r, "n_corners": int(len(corners)),
                     "grip_p95": R.rider_grip_p95(corners)}
-    # User A rode 15 bikes. Lean p95 on an S1000RR and an R18 are not the same
-    # measurement, so the honest "second rider" is the same human on a
-    # different machine.
+    # User C is the second human (Phase 3, doc 22). Their corner table
+    # (analysis/09_userC_asymmetry.py, a different recipe from user A's) has a
+    # position but no cell, so it gets the lake's own code via the decoded
+    # encoder: the cell a sample there would have carried.
+    uc = R.OUT / "userC_corners.parquet"
+    if uc.exists():
+        c = pd.read_parquet(uc)
+        c = c.assign(morton=R.morton_encode(c["lat"].to_numpy(), c["lon"].to_numpy()),
+                     lean_deg=c["lean"])
+        out["userC"] = {"rider": R.calibrate_rider(c, cells, "User C - all rides"),
+                        "n_corners": int(len(c)), "grip_p95": R.rider_grip_p95(c)}
+    # User A also rode 15 bikes. Lean p95 on an S1000RR and an R18 are not the
+    # same measurement, so each bike profile is that one human on one machine.
     for bike, n in corners["bike"].value_counts().head(2).items():
         sub = corners[corners["bike"] == bike]
         key = f"bike_{bike[:8]}"
@@ -156,15 +170,16 @@ def presets() -> dict:
 # graphs, cached per (rider, dial)
 # --------------------------------------------------------------------------
 
-def _graph(rider_key: str, z_star: float, lam: float = R.LAMBDA_DEFAULT):
+def _graph(rider_key: str, z_star: float, lam: float = R.LAMBDA_DEFAULT,
+           mode: str = "flow"):
     s = _need()
-    key = (rider_key, round(float(z_star), 3), round(float(lam), 2))
+    key = (rider_key, round(float(z_star), 3), round(float(lam), 2), mode)
     if key not in s["graphs"]:
         if len(s["graphs"]) > 12:               # keep the dial responsive, not greedy
             s["graphs"].clear()
         s["graphs"][key] = R.build_graph(
             s["edges"], s["cells"], s["riders"][rider_key]["rider"],
-            float(z_star), lam=lam, osm=s["osm"])
+            float(z_star), lam=lam, osm=s["osm"], mode=mode)
     return s["graphs"][key]
 
 
@@ -173,35 +188,37 @@ def _graph(rider_key: str, z_star: float, lam: float = R.LAMBDA_DEFAULT):
 # --------------------------------------------------------------------------
 
 def route(a, b, rider_key: str = "userA", z_star: float = 0.5,
-          lam: float = R.LAMBDA_DEFAULT) -> dict:
+          lam: float = R.LAMBDA_DEFAULT, mode: str = "flow") -> dict:
     """A -> B. Everything the map and the caption need, in plain types."""
     s = _need()
-    g = _graph(rider_key, z_star, lam)
+    g = _graph(rider_key, z_star, lam, mode)
     r = R.route_a_to_b(tuple(a), tuple(b), s["riders"][rider_key]["rider"],
                        float(z_star), graph=g, cells=s["cells"],
-                       edges=s["edges"], osm=s["osm"], lam=lam)
+                       edges=s["edges"], osm=s["osm"], lam=lam, mode=mode)
     return _pack(r, g, rider_key, z_star)
 
 
 def loop(start, hours: float, rider_key: str = "userA",
-         z_star: float = 0.5, lam: float = R.LAMBDA_DEFAULT) -> dict:
+         z_star: float = 0.5, lam: float = R.LAMBDA_DEFAULT,
+         mode: str = "flow") -> dict:
     """A closed loop of roughly `hours` from `start`."""
     s = _need()
-    g = _graph(rider_key, z_star, lam)
+    g = _graph(rider_key, z_star, lam, mode)
     r = R.route_loop(tuple(start), float(hours),
                      s["riders"][rider_key]["rider"], float(z_star),
                      graph=g, cells=s["cells"], edges=s["edges"],
-                     osm=s["osm"], lam=lam)
+                     osm=s["osm"], lam=lam, mode=mode)
     return _pack(r, g, rider_key, z_star)
 
 
 def compare(a, b, rider_key: str = "userA",
-            lo: float = 0.15, hi: float = 0.90) -> dict:
+            lo: float = 0.15, hi: float = 0.90, mode: str = "flow") -> dict:
     """
     The money shot: the same A and B at two dial settings, side by side.
     Do not make a judge drag a slider and hope — show both at once.
     """
-    x, y = route(a, b, rider_key, lo), route(a, b, rider_key, hi)
+    x = route(a, b, rider_key, lo, mode=mode)
+    y = route(a, b, rider_key, hi, mode=mode)
     out = {"low": x, "high": y, "lo_z": lo, "hi_z": hi}
     if x["ok"] and y["ok"]:
         ca, cb = set(x["cells"]), set(y["cells"])
@@ -307,9 +324,9 @@ def basemap() -> list:
 
 
 def cells_layer(rider_key: str = "userA", z_star: float = 0.5,
-                min_flow: float = 0.0) -> list:
+                min_flow: float = 0.0, mode: str = "flow") -> list:
     """Every scored cell, for colouring the map by fit."""
-    g = _graph(rider_key, z_star)
+    g = _graph(rider_key, z_star, mode=mode)
     sc = g.scored
     m = sc["flow"].to_numpy(dtype=float) >= min_flow
     sub = sc[m]
@@ -508,7 +525,8 @@ def safety_readout(route_cells: list) -> list[str]:
     return out
 
 
-def gem_pool(rider_key: str = "userA", z_star: float = 0.5, n: int = 20) -> list[dict]:
+def gem_pool(rider_key: str = "userA", z_star: float = 0.5, n: int = 20,
+             mode: str = "flow") -> list[dict]:
     """
     The crowd's best corners (crowd_gems_s2.csv, already ranked) as candidate
     turnaround points for Phase 4's arc loop. A gem is `routable` when its
@@ -518,7 +536,7 @@ def gem_pool(rider_key: str = "userA", z_star: float = 0.5, n: int = 20) -> list
     gems = (s.get("character") or {}).get("gems")
     if gems is None:
         return []
-    g = _graph(rider_key, z_star)
+    g = _graph(rider_key, z_star, mode=mode)
     sc = g.scored
     out = []
     for r in gems.head(n).itertuples(index=False):
@@ -531,3 +549,79 @@ def gem_pool(rider_key: str = "userA", z_star: float = 0.5, n: int = 20) -> list
                     "flow": float(sc.at[c16, "flow"]) if known else None,
                     "routable": bool(c16 in g.index and known and not gated)})
     return out
+
+
+# --------------------------------------------------------------------------
+# riders and modes — Phase 3, doc 22. What may be offered is decided by
+# analysis/17_riders_modes.py's pre-registered verdicts, read here, never by
+# this module. A feature that failed is answered with its verdict, not hidden.
+# --------------------------------------------------------------------------
+
+RIDERS_MODES_TEST = ROOT / "analysis" / "out" / "riders_modes_test.json"
+
+
+def _load_riders_modes() -> dict | None:
+    import json
+    return json.loads(RIDERS_MODES_TEST.read_text()) if RIDERS_MODES_TEST.exists() else None
+
+
+def _rm(name: str) -> dict:
+    return ((_need().get("riders_modes") or {}).get(name)) or {}
+
+
+def modes() -> list[dict]:
+    """Every defined mode, its verdict, and whether the app may offer it."""
+    import modes as M
+    scan = _rm("modes")
+    out = []
+    for k in M.MODES:
+        v = "DEFAULT" if k == "flow" else (scan.get(k) or {}).get("verdict", "UNTESTED")
+        out.append({"key": k, "verdict": v,
+                    "phase4": k in M.PHASE4_MODES,
+                    "offered": k == "flow" or (v == "PASS" and k not in M.PHASE4_MODES)})
+    return out
+
+
+def default_mode(rider_key: str = "userA", bike: str | None = None) -> dict:
+    """
+    F3.3: the mode a ride opens on. Only if bike archetypes exist (F0.4) AND the
+    archetype was shown to predict road choice (F3.3); otherwise Flow, and say why.
+    """
+    import modes as M
+    offered = {m["key"] for m in modes() if m["offered"]}
+    bm = _rm("bike_mode")
+    arche = _rm("bike_dna").get("bikes") or {}
+    b = bike or (rider_key[5:] if rider_key.startswith("bike_") else None)
+    if bm.get("verdict") == "PASS" and b and b in arche:
+        m = M.ARCHETYPE_MODE.get(arche[b])
+        if m in offered:
+            return {"mode": m, "why": f"bike archetype {arche[b]} (an interpretation of "
+                                      f"its telemetry, not a model lookup)"}
+    return {"mode": "flow", "why": f"bike -> mode verdict {bm.get('verdict', 'UNTESTED')}; "
+                                   f"every ride opens on Flow"}
+
+
+def suggest_mode(first_minutes: pd.DataFrame, rider_key: str = "userA") -> dict:
+    """F3.4, backend only: offered, never imposed — and only if mood passed."""
+    import modes as M
+    t = _rm("mood")
+    if t.get("verdict") != "PASS":
+        return {"ok": False, "note": f"mood detection verdict {t.get('verdict', 'UNTESTED')}; "
+                                     f"not offered"}
+    person = "userA" if rider_key.startswith("bike_") else rider_key
+    cuts = (t.get(person) or {}).get("tercile_cuts")
+    return M.detect_mood(first_minutes, tuple(cuts) if cuts else None)
+
+
+def rhythm_fit(rider_key: str = "userA") -> dict:
+    """F3.5, backend only: per-cell rhythm match for a rider whose wavelength is personal."""
+    import modes as M
+    t = _rm("rhythm_match")
+    person = "userA" if rider_key.startswith("bike_") else rider_key
+    wl = (t.get(person) or {}).get("wavelength_m")
+    if t.get("verdict") not in ("PERSONAL", "PERSONAL-ROAD-CHOICE") or wl is None:
+        return {"ok": False, "note": f"rhythm match verdict {t.get('verdict', 'UNTESTED')}"}
+    c = _need()["cells"]
+    m = M.rhythm_match(c["rhythm_wavelength_m"].to_numpy(dtype=float), wl, t["h_m"])
+    return {"ok": True, "verdict": t["verdict"], "wavelength_m": wl, "h_m": t["h_m"],
+            "match": dict(zip(c["morton_code"].astype(str), np.round(m, 4)))}

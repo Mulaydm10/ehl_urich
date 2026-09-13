@@ -101,10 +101,14 @@ if __name__ == "__main__":
           f"surprise boundaries {0 if character['surprise'] is None else len(character['surprise'])}, "
           f"verdicts {'none - run analysis/16_road_character.py' if character['test'] is None else 'yes'}")
 
-    print("[6] pre-solving the presets")
+    print("[6] riders and modes verdicts (analysis/17_riders_modes.py output)")
+    riders_modes = S._load_riders_modes()
+    print(f"    {'none - run analysis/17_riders_modes.py' if riders_modes is None else 'yes'}")
+
+    print("[7] pre-solving the presets")
     payload = {"cells": cells, "edges": edges, "osm": osm, "riders": riders,
                "basemap": basemap, "precomputed": {}, "joy": joy,
-               "character": character}
+               "character": character, "riders_modes": riders_modes}
     S._S = {**payload, "graphs": {}, "source": "bake(build)",
             "loaded_s": 0.0}
 

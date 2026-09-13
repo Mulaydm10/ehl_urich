@@ -323,10 +323,10 @@ def render():
     labels = {r["label"]: r["key"] for r in rl}
     rider_label = _pick("Rider profile", list(labels), key="rt_rider",
                         default=rl[0]["label"],
-                        help="There is no second human in the data. User A rode "
-                             "15 bikes, and lean p95 on an S1000RR and on an R18 "
-                             "are not the same measurement — so the honest second "
-                             "rider is the same person on a different machine.")
+                        help="Two people have personal telemetry: User A and "
+                             "User C. The bike profiles are User A on one machine "
+                             "at a time, because lean p95 on an S1000RR and on an "
+                             "R18 are not the same measurement.")
     rider_key = labels.get(rider_label, rl[0]["key"])
     rr = next(r for r in rl if r["key"] == rider_key)
 

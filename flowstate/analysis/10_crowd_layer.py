@@ -288,6 +288,12 @@ def road_character(d, T, code, ts, dt, step, v, absf, src, ride_idx):
         thr_sd = np.sqrt(np.maximum(t2 / thr_n - (t1 / thr_n) ** 2, 0.0))
     abs_any = np.bincount(li, absf, nc) > 0
 
+    # ---- elevation per traversal: only so the halves can test it (Phase 3) ----
+    el = d.positionrawelevation.to_numpy(dtype=float)
+    el_ok = np.isfinite(el) & (el != 0) & (el > -100) & (el < 4000)
+    elev_sum = np.bincount(li, np.where(el_ok, el, 0.0), nc)
+    elev_n = np.bincount(li, el_ok, nc)
+
     # ---- long stops, away from both ends of the ride ----
     long_stop = np.zeros(nc, dtype=bool)
     e = np.flatnonzero(np.diff(np.r_[0, slow.astype(np.int8), 0]))
@@ -300,7 +306,7 @@ def road_character(d, T, code, ts, dt, step, v, absf, src, ride_idx):
 
     T = T.assign(time_s=time_s, dwell_s=dwell_s, km=km, flips=flips, v_mean=v_mean,
                  thr_sd=thr_sd, thr_n=thr_n, abs_any=abs_any, long_stop=long_stop,
-                 half=np.int8(ride_idx % 2))
+                 elev_sum=elev_sum, elev_n=elev_n, half=np.int8(ride_idx % 2))
 
     # ---- rhythm: FFT of signed lean against distance ----
     W = None
@@ -335,7 +341,10 @@ def road_character(d, T, code, ts, dt, step, v, absf, src, ride_idx):
             den = a0 - 2.0 * a1 + a2
             off = np.clip(np.where(np.abs(den) > 1e-12, 0.5 * (a0 - a2) / den, 0.0), -0.5, 0.5)
             wavelength = RHY_N * RHY_STEP_M / (kk + off)
-            purity = (pw[r, kk - 1] + pw[r, kk] + pw[r, kk + 1]) / pw[:, 2:].sum(axis=1)
+            # bin 1 is outside the denominator, so it must stay outside the numerator:
+            # counting it at kk=2 let purity reach 4.7 (found in Phase 3, doc 22)
+            lo_bin = np.where(kk - 1 >= 2, pw[r, kk - 1], 0.0)
+            purity = (lo_bin + pw[r, kk] + pw[r, kk + 1]) / pw[:, 2:].sum(axis=1)
             centre = grid_s[starts[keep] + RHY_N // 2]
             j = np.clip(np.searchsorted(cu, centre), 0, cu.size - 1)
             parts.append(pd.DataFrame({"cell": code[mi[j]], "wavelength": wavelength.astype(np.float32),
@@ -372,8 +381,10 @@ def character(T, W, keys):
     a = g.agg(time_s=("time_s", "sum"), dwell_s=("dwell_s", "sum"), km_ridden=("km", "sum"),
               flips=("flips", "sum"), abs_rides=("abs_any", "sum"),
               long_stop_rides=("long_stop", "sum"), n_trav=("stop", "size"),
-              trav_v_median=("v_mean", "median"))
+              trav_v_median=("v_mean", "median"), elev_sum=("elev_sum", "sum"),
+              elev_n=("elev_n", "sum"))
     with np.errstate(divide="ignore", invalid="ignore"):
+        a["elev_mean"] = np.where(a.elev_n > 0, a.elev_sum / a.elev_n, np.nan)
         a["dwell_share"] = np.where(a.time_s > 0, a.dwell_s / a.time_s, np.nan)
         a["reversals_km"] = np.where(a.km_ridden >= 1.0, a.flips / a.km_ridden, np.nan)
     med = g["v_mean"].transform("median")
@@ -393,7 +404,7 @@ def character(T, W, keys):
         a["rhythm_rides"] = 0
     a["rhythm_rides"] = a["rhythm_rides"].fillna(0).astype(int)
     a["traffic_trav"] = a["traffic_trav"].fillna(0).astype(int)
-    return a.drop(columns=["time_s", "dwell_s", "flips"])
+    return a.drop(columns=["time_s", "dwell_s", "flips", "elev_sum", "elev_n"])
 
 
 def main():
@@ -529,7 +540,7 @@ def main():
     grid.to_parquet(os.path.join(OUT, "crowd_grid%s.parquet" % tag), index=False)
     print("wrote crowd_grid%s.parquet  (%s cells)" % (tag, f"{len(grid):,}"))
 
-    hv = character(T, W, ["cell", "half"])[CH_COLS + ["n_trav"]].reset_index()
+    hv = character(T, W, ["cell", "half"])[CH_COLS + ["n_trav", "elev_mean"]].reset_index()
     hv.insert(0, "morton_code", [inv[c] for c in hv["cell"]])
     hv.drop(columns="cell").to_parquet(os.path.join(OUT, "crowd_halves%s.parquet" % tag),
                                        index=False)

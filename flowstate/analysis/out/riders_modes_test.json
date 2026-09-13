@@ -1,0 +1,529 @@
+{
+ "preregistered": {
+  "MORTON_FILES_LAKE": 20,
+  "MORTON_FILES_RIDER": 10,
+  "HALF_MIN_TRAV": 10,
+  "RHY_HALF_MIN_RIDES": 5,
+  "RELIABLE_RHO": 0.5,
+  "MIN_SHARED_CELLS": 50,
+  "RECIPE_SHIFT_SIGMA": 0.5,
+  "BEAT_PAIR": "kochel_tegernsee",
+  "ROAD_MOVES_SHARED": 0.5,
+  "BIKE_MIN_RIDES": 3,
+  "K_ARCHETYPES": 3,
+  "SILHOUETTE_BAR": 0.5,
+  "ARI_BAR": 0.7,
+  "N_BOOT_BIKE": 1000,
+  "N_PERM": 5000,
+  "BIKE_P": 0.01,
+  "SCAN_DIAL": 0.5,
+  "CHANGED_OVERLAP": 0.9,
+  "MIN_CHANGED_SHARE": 0.1,
+  "MIN_CHANGED_PAIRS": 10,
+  "SIGN_SHARE": 0.7,
+  "SIGN_P": 0.01,
+  "BIKE_MODE_P": 0.05,
+  "BIKE_MODE_MIN_CELLS": 20,
+  "MOOD_MIN_RIDE_S": 1200.0,
+  "MOOD_BIKE_MIN_RIDES": 3,
+  "MOOD_RHO": 0.3,
+  "RIDER_MIN_WINDOWS": 10,
+  "CROWD_RHY_MIN_RIDES": 10,
+  "PROV_RIDE_SHARE": 0.5,
+  "N_BOOT": 2000,
+  "SEED": 7
+ },
+ "morton": {
+  "crowd_lake": {
+   "files": 20,
+   "samples": 7374,
+   "exact_32_digits": 1.0
+  },
+  "userA": {
+   "files": 10,
+   "samples": 36055,
+   "exact_32_digits": 1.0
+  },
+  "userC": {
+   "files": 10,
+   "samples": 23203,
+   "exact_32_digits": 1.0
+  },
+  "verdict": "EXACT"
+ },
+ "columns": {
+  "elev_prominence_reproduces_grid_max_abs_m": 3.256,
+  "elev_mean": {
+   "rho": 0.993,
+   "ci": [
+    0.991,
+    0.994
+   ],
+   "n": 1618,
+   "verdict": "RELIABLE"
+  },
+  "elev_prominence_m": {
+   "rho": 0.743,
+   "ci": [
+    0.71,
+    0.77
+   ],
+   "n": 1618,
+   "verdict": "RELIABLE"
+  },
+  "rhythm_purity": {
+   "rho": 0.942,
+   "ci": [
+    0.931,
+    0.95
+   ],
+   "n": 1592,
+   "verdict": "RELIABLE",
+   "rho_vs_wavelength": 0.451
+  },
+  "n_rides": {
+   "rho": 0.88,
+   "ci": [
+    0.865,
+    0.894
+   ],
+   "n": 1618,
+   "verdict": "RELIABLE"
+  },
+  "reversals_km": {
+   "verdict": "RELIABLE",
+   "source": "doc 21"
+  },
+  "stop_rate": {
+   "verdict": "NOT-TESTED",
+   "source": "used only by urban (Phase 4)"
+  }
+ },
+ "userC": {
+  "corners": 15810,
+  "corners_in_box": 1959,
+  "rides_in_box": 21,
+  "recipe_note": "user C corners: 09_userC_asymmetry.py (block of >= 3 samples, centroid position); user A corners: corners_filtered (5,253). Different recipes.",
+  "userA": {
+   "skill": 11.404,
+   "sigma": 5.592,
+   "gate": 22.588,
+   "n_cells": 360,
+   "hardest_ridden": 21.243,
+   "gate_agreement": 1.063,
+   "calibrated": true,
+   "skill_all_touched_cells": 7.399,
+   "touched_cells": 1452,
+   "recipe_shift_sigma": 0.716
+  },
+  "userC": {
+   "skill": 10.651,
+   "sigma": 5.441,
+   "gate": 21.534,
+   "n_cells": 592,
+   "hardest_ridden": 20.079,
+   "gate_agreement": 1.072,
+   "calibrated": true,
+   "skill_all_touched_cells": 7.053,
+   "touched_cells": 1171,
+   "recipe_shift_sigma": 0.661
+  },
+  "recipe": "RECIPE-SENSITIVE",
+  "skill_ci_by_ride": {
+   "userA": [
+    10.533,
+    12.256
+   ],
+   "userC": [
+    8.952,
+    11.375
+   ]
+  },
+  "skills_differ": false,
+  "presets": {
+   "lenggries_bad_toelz": {
+    "cruise": {
+     "ok": true,
+     "note_C": null,
+     "shared_A_C": 1.0,
+     "km_A": 46.913,
+     "km_C": 46.913,
+     "mean_demand_A": 7.02,
+     "mean_demand_C": 7.02,
+     "refusals_A": 0,
+     "refusals_C": 1
+    },
+    "send_it": {
+     "ok": true,
+     "note_C": null,
+     "shared_A_C": 0.167,
+     "km_A": 53.041,
+     "km_C": 46.913,
+     "mean_demand_A": 9.714,
+     "mean_demand_C": 7.02,
+     "refusals_A": 0,
+     "refusals_C": 1
+    }
+   },
+   "lenggries_kochel": {
+    "cruise": {
+     "ok": true,
+     "note_C": null,
+     "shared_A_C": 1.0,
+     "km_A": 62.097,
+     "km_C": 62.097,
+     "mean_demand_A": 7.252,
+     "mean_demand_C": 7.252,
+     "refusals_A": 0,
+     "refusals_C": 1
+    },
+    "send_it": {
+     "ok": true,
+     "note_C": null,
+     "shared_A_C": 0.298,
+     "km_A": 68.728,
+     "km_C": 62.6,
+     "mean_demand_A": 9.591,
+     "mean_demand_C": 7.56,
+     "refusals_A": 0,
+     "refusals_C": 1
+    }
+   },
+   "kochel_tegernsee": {
+    "cruise": {
+     "ok": true,
+     "note_C": null,
+     "shared_A_C": 0.993,
+     "km_A": 58.734,
+     "km_C": 58.745,
+     "mean_demand_A": 8.742,
+     "mean_demand_C": 8.724,
+     "refusals_A": 3,
+     "refusals_C": 4
+    },
+    "send_it": {
+     "ok": true,
+     "note_C": null,
+     "shared_A_C": 1.0,
+     "km_A": 57.689,
+     "km_C": 57.689,
+     "mean_demand_A": 8.575,
+     "mean_demand_C": 8.575,
+     "refusals_A": 3,
+     "refusals_C": 4,
+     "shared_A_bike_4e1a9d64": 0.105
+    }
+   },
+   "kochel_loop_2h_send_it_userC": {
+    "ok": true,
+    "km": 135.957,
+    "minutes": 119.29,
+    "distinct_share": 0.893
+   }
+  },
+  "beat3": "ROAD-STAYS",
+  "verdict": "CALIBRATED"
+ },
+ "bike_dna": {
+  "rides": 101,
+  "bikes": {},
+  "rides_usable": 96,
+  "bikes_eligible": 8,
+  "rides_eligible": 84,
+  "per_bike_max_rpm_range": [
+   4754.0,
+   11745.0
+  ],
+  "rho_bike_max_rpm_vs_n_rides": 0.45,
+  "note": "FEATURES.md's 7,210-11,745 are two single bikes' maxima; a per-bike MAX grows with the number of rides, so bikes are summarised by medians",
+  "between_bike_share": {
+   "engineMaxRpm": {
+    "eta2": 0.084,
+    "p": 0.422
+   },
+   "accelerationMax": {
+    "eta2": 0.214,
+    "p": 0.022
+   },
+   "lean_max": {
+    "eta2": 0.298,
+    "p": 0.0
+   },
+   "log_km": {
+    "eta2": 0.328,
+    "p": 0.0
+   }
+  },
+  "bike_declares_itself_rpm": false,
+  "silhouette_k3": 0.318,
+  "silhouette_k2_info": 0.4,
+  "bootstrap_ari_median": 0.241,
+  "centroids_z": {
+   "cluster_0": {
+    "engineMaxRpm": -1.62,
+    "accelerationMax": 1.263,
+    "lean_max": -0.57,
+    "log_km": -1.333
+   },
+   "cluster_1": {
+    "engineMaxRpm": -0.26,
+    "accelerationMax": -0.673,
+    "lean_max": -0.797,
+    "log_km": -0.47
+   },
+   "cluster_2": {
+    "engineMaxRpm": 0.886,
+    "accelerationMax": 0.476,
+    "lean_max": 1.252,
+    "log_km": 1.071
+   }
+  },
+  "cluster_sizes": {
+   "cluster_0": 1,
+   "cluster_1": 4,
+   "cluster_2": 3
+  },
+  "verdict": "NO-STRUCTURE",
+  "userC": "default (no manifest, no bike id)"
+ },
+ "modes": {
+  "flow_identical_to_no_mode": true,
+  "gate_and_refusals_mode_invariant": {
+   "flow": true,
+   "scenic": true,
+   "adventure": true,
+   "mountain": true,
+   "urban": true
+  },
+  "pairs": 200,
+  "dial": 0.5,
+  "scenic": {
+   "target": "elev_prominence_m",
+   "direction": "+",
+   "pairs": 200,
+   "share_changed": 0.375,
+   "changed_pairs": 75,
+   "share_target_moved_right_way": 0.8,
+   "sign_test_p": 0.0,
+   "median_target_change_on_changed": 1.182,
+   "km_ratio_median": 1.0,
+   "km_ratio_max": 1.173,
+   "demand_gain_median": -0.013,
+   "pref_gain_median_on_changed": 0.011,
+   "mean_flow_change_median_on_changed": -0.05,
+   "unreliable_columns": [],
+   "phase4": false,
+   "verdict": "PASS"
+  },
+  "adventure": {
+   "target": "n_rides",
+   "direction": "-",
+   "pairs": 200,
+   "share_changed": 0.22,
+   "changed_pairs": 44,
+   "share_target_moved_right_way": 0.409,
+   "sign_test_p": 0.913,
+   "median_target_change_on_changed": -0.239,
+   "km_ratio_median": 1.0,
+   "km_ratio_max": 1.047,
+   "demand_gain_median": 0.0,
+   "pref_gain_median_on_changed": 0.007,
+   "mean_flow_change_median_on_changed": -0.042,
+   "unreliable_columns": [],
+   "phase4": false,
+   "verdict": "FAIL"
+  },
+  "mountain": {
+   "target": "elev_mean",
+   "direction": "+",
+   "pairs": 200,
+   "share_changed": 0.26,
+   "changed_pairs": 52,
+   "share_target_moved_right_way": 0.808,
+   "sign_test_p": 0.0,
+   "median_target_change_on_changed": 2.318,
+   "km_ratio_median": 1.0,
+   "km_ratio_max": 1.286,
+   "demand_gain_median": 0.0,
+   "pref_gain_median_on_changed": 0.007,
+   "mean_flow_change_median_on_changed": 0.003,
+   "unreliable_columns": [],
+   "phase4": false,
+   "verdict": "PASS"
+  },
+  "urban": {
+   "target": "n_rides",
+   "direction": "-",
+   "pairs": 200,
+   "share_changed": 0.3,
+   "changed_pairs": 60,
+   "share_target_moved_right_way": 0.783,
+   "sign_test_p": 0.0,
+   "median_target_change_on_changed": 1.725,
+   "km_ratio_median": 1.0,
+   "km_ratio_max": 1.047,
+   "demand_gain_median": -0.007,
+   "pref_gain_median_on_changed": 0.005,
+   "mean_flow_change_median_on_changed": -0.014,
+   "unreliable_columns": [],
+   "phase4": true,
+   "verdict": "PASS"
+  }
+ },
+ "bike_mode": {
+  "verdict": "DEFAULT-ONLY",
+  "why": "bike DNA verdict NO-STRUCTURE: there are no archetypes to map"
+ },
+ "mood": {
+  "signal": "median rpm / (3.6 v) over moving samples (v > 5 m/s, rpm > 500), bus speed only",
+  "outcome": "lean p90 over the moving rest of the ride (after minute 10)",
+  "baseline": "lean p90 over the first ten minutes",
+  "userA": {
+   "eligible_rides": 40,
+   "replicate_features_claim_whole_ride": {
+    "rho": -0.02,
+    "ci": [
+     -0.364,
+     0.319
+    ],
+    "n": 40
+   },
+   "within_bike_rides": 33,
+   "bikes": 6,
+   "predict_rest": {
+    "rho": 0.018,
+    "ci": [
+     -0.346,
+     0.386
+    ],
+    "n": 33
+   },
+   "beyond_first10_lean": {
+    "partial_rho": -0.031,
+    "ci": [
+     -0.405,
+     0.354
+    ]
+   },
+   "lean_alone_predicts_rest": {
+    "rho": -0.214,
+    "ci": [
+     -0.57,
+     0.153
+    ],
+    "n": 33
+   },
+   "kappa_terciles": 0.136,
+   "tercile_cuts": [
+    44.744,
+    54.148
+   ]
+  },
+  "userC": {
+   "eligible_rides": 101,
+   "replicate_features_claim_whole_ride": {
+    "rho": -0.208,
+    "ci": [
+     -0.371,
+     -0.035
+    ],
+    "n": 101
+   },
+   "predict_rest": {
+    "rho": -0.219,
+    "ci": [
+     -0.389,
+     -0.04
+    ],
+    "n": 101
+   },
+   "beyond_first10_lean": {
+    "partial_rho": -0.143,
+    "ci": [
+     -0.33,
+     0.038
+    ]
+   },
+   "lean_alone_predicts_rest": {
+    "rho": 0.532,
+    "ci": [
+     0.351,
+     0.675
+    ],
+    "n": 101
+   },
+   "kappa_terciles": -0.188,
+   "tercile_cuts": [
+    52.446,
+    69.191
+   ]
+  },
+  "verdict": "FAIL"
+ },
+ "provenance": {
+  "lake_files": 7999,
+  "lake_sample_keys": 2583234,
+  "rule": "a ride is inside the lake if >= 50% of its samples match",
+  "userA": {
+   "rides": 100,
+   "rides_inside_lake": 3,
+   "median_sample_match": 0.0,
+   "rides_any_match": 18
+  },
+  "userC": {
+   "rides": 224,
+   "rides_inside_lake": 0,
+   "median_sample_match": 0.0,
+   "rides_any_match": 2
+  },
+  "verdict": "RIDES-IN-LAKE"
+ },
+ "rhythm_match": {
+  "method": "10_crowd_layer.process_ride itself (10 m, 128-sample Hann, hop 16)",
+  "h_m": 7.317,
+  "h_source": "median |split-half difference| of crowd cell wavelength, 1592 cells",
+  "h_cells": 1592,
+  "userA": {
+   "windows": 18046,
+   "rides": 85,
+   "wavelength_m": 434.596,
+   "windows_on_trusted_crowd_cells": 2675
+  },
+  "userC": {
+   "windows": 23332,
+   "rides": 169,
+   "wavelength_m": 401.736,
+   "windows_on_trusted_crowd_cells": 2422
+  },
+  "raw_ride_medians": {
+   "diff_C_minus_A": -38.078,
+   "ci": [
+    -77.09,
+    5.68
+   ],
+   "rides": [
+    75,
+    135
+   ]
+  },
+  "residual_vs_crowd_same_cell": {
+   "diff_C_minus_A": 0.0,
+   "ci": [
+    0.0,
+    0.0
+   ],
+   "rides": [
+    17,
+    17
+   ]
+  },
+  "resolution": {
+   "distinct_wavelengths": 32226,
+   "share_on_10_most_common_values": 0.202,
+   "share_residual_exactly_zero": 0.159,
+   "share_crowd_split_half_identical": 0.173
+  },
+  "note": "3 of user A's 100 rides and 0 of user C's 224 are inside the crowd lake (provenance): too few to make the residual self-referential, and user C shows the same degenerate residual with none. The residual is limited by wavelength resolution and is uninformative either way",
+  "verdict": "NOT-PERSONAL"
+ }
+}

@@ -111,6 +111,19 @@ All new per-cell columns in `analysis/10_crowd_layer.py` (13.8 s rebuild, 24 s a
 
 ## Phase 3 — who is riding, and what kind of ride  (Layer 3 + riders)
 
+> **DONE — doc 22.**
+> - **Morton decoded exactly.** It is lat/lon bits interleaved over 360°, 100% of samples.
+> - **User C in the rider switch.** CALIBRATED: 592 cells, gate agreement 1.072. Skill is not
+>   distinguishable from user A's. Beat 3 stays (100% shared at Send it).
+> - **Recipe.** Calibration is RECIPE-SENSITIVE (0.7 σ).
+> - **Bike DNA.** NO-STRUCTURE (silhouette 0.32, ARI 0.24; rev ceiling does not identify a bike),
+>   so bike → mode is DEFAULT-ONLY.
+> - **Modes.** v1 (multiplicative) failed on mechanism. v2 (additive): scenic and mountain PASS on
+>   direction, but the effect is only +1–2 m. Adventure FAIL; urban PASS, left for Phase 4.
+>   Flow is bit-identical and the gate is mode-invariant.
+> - **Mood** FAIL (the 0.54 does not replicate). **Rhythm match** NOT-PERSONAL.
+> - **Phase 2 defect.** Rhythm purity leaked a bin and reached 4.7; fixed, no Phase 2 verdict moved.
+
 | Feature | Lands in |
 |---|---|
 | **user C in `service.riders()`** | 1,959 of 15,810 corners are inside the box. A real two-person rider switch; measure it on the presets and rewrite beat 3 only if it moves the road. Also fix the `route_tab.py` help text that says there is no second human — a string, not a pixel change |

@@ -44,6 +44,9 @@ import pandas as pd
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import dijkstra
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import modes as M                                             # noqa: E402
+
 # --------------------------------------------------------------------------
 # constants
 # --------------------------------------------------------------------------
@@ -120,6 +123,28 @@ def _haversine_m(lat1, lon1, lat2, lon2) -> np.ndarray:
     dl = np.radians(np.asarray(lon2, dtype=float) - np.asarray(lon1, dtype=float))
     a = np.sin(dp / 2) ** 2 + np.cos(p1) * np.cos(p2) * np.sin(dl / 2) ** 2
     return 2 * R * np.arcsin(np.sqrt(np.clip(a, 0, 1)))
+
+
+def morton_encode(lat, lon, chars: int = 32) -> np.ndarray:
+    """
+    The lake's own `morton_code`, from a position. Decoded in Phase 3 (doc 22):
+    32 base-4 digits, each = 2 * latitude bit + longitude bit, with BOTH axes
+    scaled over 360 degrees — y = (lat + 90) / 360, x = (lon + 180) / 360.
+    Encoding the map-matched position reproduces all 32 digits of the lake's
+    code on 100% of the samples tested, and on user C's own CSVs. It is not a
+    Bing quadkey (0% at any prefix).
+
+    Needed because user C's corner table carries a position but no cell.
+    """
+    la = np.asarray(lat, dtype=float)
+    lo = np.asarray(lon, dtype=float)
+    y = np.floor((la + 90.0) / 360.0 * 2.0 ** 32).astype(np.int64)
+    x = np.floor((lo + 180.0) / 360.0 * 2.0 ** 32).astype(np.int64)
+    digits = np.empty((la.size, chars), dtype=np.uint8)
+    for k in range(chars):
+        s = 31 - k
+        digits[:, k] = 48 + 2 * ((y >> s) & 1) + ((x >> s) & 1)
+    return np.array([row.tobytes().decode() for row in digits], dtype=object)
 
 
 # --------------------------------------------------------------------------
@@ -365,12 +390,18 @@ def symmetrise_edges(e: pd.DataFrame) -> pd.DataFrame:
 def score_cells(cells: pd.DataFrame, rider: Rider, z_star: float,
                 tau: float = TAU_DEFAULT,
                 gate_sigmas: float = GATE_SIGMAS,
-                osm: pd.DataFrame | None = None) -> pd.DataFrame:
+                osm: pd.DataFrame | None = None,
+                mode: str = "flow") -> pd.DataFrame:
     """
     One NumPy pass over all 27k rows. No loops, no apply, no iterrows —
     the dial moves in the UI and this has to re-run between two frames.
 
     Returns a frame indexed by cell with z, flow, gated and a reason string.
+
+    `mode` (Phase 3, doc 22) adds a `mode_penalty` column in [0, 0.5] that
+    build_graph adds to (1 - flow) in the edge cost. Flow itself, the gate, z
+    and the reasons never depend on mode. "flow" is today's router and skips
+    the block entirely.
     """
     n = len(cells)
     demand = cells["demand_p90"].to_numpy(dtype=float)
@@ -459,7 +490,20 @@ def score_cells(cells: pd.DataFrame, rider: Rider, z_star: float,
     }).set_index("cell")
     if "dwell_share" in cells.columns:          # a cell table from before Phase 2 has none
         out = out.join(road_character(cells, osm)[list(SCORED_CHARACTER_COLS)])
+    if mode not in (None, "flow"):              # flow never enters: bit-identical by construction
+        out["mode_penalty"] = _mode_penalty(cells, osm, mode)
     return out
+
+
+def _mode_penalty(cells: pd.DataFrame, osm: pd.DataFrame | None, mode: str) -> np.ndarray:
+    """The mode's columns in cell-table row order, reversals with residential masked."""
+    cols = M.mode_columns(mode)
+    frame = pd.DataFrame({c: cells[c].to_numpy(dtype=float)
+                          for c in cols if c != "reversals_km"})
+    if "reversals_km" in cols:
+        frame["reversals_km"] = (road_character(cells, osm)["reversals_km"]
+                                 .reindex(cells["morton_code"]).to_numpy(dtype=float))
+    return M.mode_penalty(frame, mode)
 
 
 def road_character(cells: pd.DataFrame, osm: pd.DataFrame | None = None) -> pd.DataFrame:
@@ -549,6 +593,7 @@ class Graph:
     z_star: float = 0.0
     lam: float = LAMBDA_DEFAULT
     rider: Rider | None = None
+    mode: str = "flow"
 
     @property
     def n_nodes(self) -> int:
@@ -559,7 +604,8 @@ def build_graph(edges: pd.DataFrame, cells: pd.DataFrame, rider: Rider,
                 z_star: float, tau: float = TAU_DEFAULT,
                 lam: float = LAMBDA_DEFAULT,
                 hard_gate: bool = True,
-                osm: pd.DataFrame | None = None) -> Graph:
+                osm: pd.DataFrame | None = None,
+                mode: str = "flow") -> Graph:
     """
     Cost an edge by how well its DESTINATION cell fits the rider.
 
@@ -571,7 +617,7 @@ def build_graph(edges: pd.DataFrame, cells: pd.DataFrame, rider: Rider,
     hard_gate=True drops every edge whose destination is refused. Set it
     False only for the unreachable fallback, and say so in the UI.
     """
-    scored = score_cells(cells, rider, z_star, tau=tau, osm=osm)
+    scored = score_cells(cells, rider, z_star, tau=tau, osm=osm, mode=mode)
 
     nodes = np.array(sorted(set(edges["ci"]) | set(edges["cj"])), dtype=object)
     index = {c: i for i, c in enumerate(nodes)}
@@ -614,7 +660,14 @@ def build_graph(edges: pd.DataFrame, cells: pd.DataFrame, rider: Rider,
     e["seconds"] = length / v
     e["flow_j"] = flow_j
     e["gated_j"] = gated_j
-    e["cost"] = length * (1.0 + float(lam) * (1.0 - flow_j))
+    if "mode_penalty" not in scored.columns:     # flow: today's expression, untouched
+        e["cost"] = length * (1.0 + float(lam) * (1.0 - flow_j))
+    else:
+        # a cell missing from the table is unmeasured for the mode too: neutral
+        pen = scored["mode_penalty"].reindex(e["cj"]).to_numpy(dtype=float)
+        pen = np.where(np.isfinite(pen), pen, 0.5 * M.MODE_ALPHA)
+        e["mode_penalty_j"] = pen
+        e["cost"] = length * (1.0 + float(lam) * (1.0 - flow_j + pen))
 
     if hard_gate:
         refused = e.loc[gated_j].copy()
@@ -631,7 +684,7 @@ def build_graph(edges: pd.DataFrame, cells: pd.DataFrame, rider: Rider,
 
     return Graph(matrix=m, nodes=nodes, index=index, scored=scored,
                  edges=keep, refused=refused, z_star=float(z_star),
-                 lam=float(lam), rider=rider)
+                 lam=float(lam), rider=rider, mode=mode)
 
 
 # --------------------------------------------------------------------------
@@ -753,7 +806,8 @@ def route_a_to_b(A, B, rider: Rider, z_star: float,
                  edges: pd.DataFrame | None = None,
                  lam: float = LAMBDA_DEFAULT,
                  tau: float = TAU_DEFAULT,
-                 osm: pd.DataFrame | None = None) -> Route:
+                 osm: pd.DataFrame | None = None,
+                 mode: str = "flow") -> Route:
     """
     A and B are (lat, lon). Builds the graph if one is not handed in — the
     app should hand one in and rebuild it only when the dial moves.
@@ -761,7 +815,8 @@ def route_a_to_b(A, B, rider: Rider, z_star: float,
     cells = load_cells() if cells is None else cells
     edges = load_edges() if edges is None else edges
     if graph is None:
-        graph = build_graph(edges, cells, rider, z_star, tau=tau, lam=lam, osm=osm)
+        graph = build_graph(edges, cells, rider, z_star, tau=tau, lam=lam, osm=osm,
+                            mode=mode)
 
     for pt, name in ((A, "start"), (B, "finish")):
         if not in_coverage(pt[0], pt[1]):
@@ -783,7 +838,7 @@ def route_a_to_b(A, B, rider: Rider, z_star: float,
         # every corridor was refused. Do not return nothing on stage: say so,
         # reopen the gate as a penalty, and label the route honestly.
         open_graph = build_graph(edges, cells, rider, z_star, tau=tau, lam=lam,
-                                 hard_gate=False, osm=osm)
+                                 hard_gate=False, osm=osm, mode=graph.mode)
         si, ti = open_graph.index[a], open_graph.index[b]
         idx = _shortest(open_graph, si, ti)
         if idx is None:
@@ -946,7 +1001,8 @@ def route_loop(start, hours: float, rider: Rider, z_star: float,
                osm: pd.DataFrame | None = None,
                tolerance: float = 0.20,
                n_candidates: int = 160,
-               reuse_penalty: float = 6.0) -> Route:
+               reuse_penalty: float = 6.0,
+               mode: str = "flow") -> Route:
     """
     BMW use case B: "give me a loop for the next X hours from here."
 
@@ -970,7 +1026,8 @@ def route_loop(start, hours: float, rider: Rider, z_star: float,
     cells = load_cells() if cells is None else cells
     edges = load_edges() if edges is None else edges
     if graph is None:
-        graph = build_graph(edges, cells, rider, z_star, tau=tau, lam=lam, osm=osm)
+        graph = build_graph(edges, cells, rider, z_star, tau=tau, lam=lam, osm=osm,
+                            mode=mode)
 
     if not in_coverage(start[0], start[1]):
         return Route(False, note=(
