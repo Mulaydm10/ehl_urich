@@ -153,8 +153,12 @@ export function NavigateScreen() {
   const replanVia = useCallback(
     async (next: StopAhead[]) => {
       const ctx = rideContext()
-      const dest = ctx?.route?.destination
-      if (!ctx || !dest) {
+      if (!ctx) {
+        setSaid('No live GPS fix, so I cannot re-plan through a stop from here.')
+        return
+      }
+      const dest = ctx.route?.destination
+      if (!dest) {
         setSaid('No plan loaded, so there is nowhere to add a stop on the way to.')
         return
       }
@@ -191,7 +195,10 @@ export function NavigateScreen() {
 
   const loadStops = useCallback(async () => {
     const ctx = rideContext()
-    if (!ctx) return
+    if (!ctx) {
+      setSaid('No live GPS fix, so I cannot tell what is ahead of you.')
+      return
+    }
     try {
       const run = await http.post<{ result?: { stops?: StopAhead[]; error?: string } }>(
         '/api/assistant/tool',
