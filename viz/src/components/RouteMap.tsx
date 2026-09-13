@@ -1,6 +1,6 @@
 import L from 'leaflet'
 import { useEffect, useMemo, useRef } from 'react'
-import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, Marker, Polyline, ScaleControl, TileLayer, Tooltip, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
 import type { Candidate, LonLat, Plan, Refusal } from '../lib/api'
 import { toLatLng } from '../lib/geo'
 
@@ -10,12 +10,13 @@ const DARK_ATTR = 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
 
 export const CAND_COLORS = ['#F5A524', '#3ED598', '#C77DFF', '#6DB6E8', '#FF7A59', '#FFD166']
 
-const riderIcon = L.divIcon({ className: '', html: '<div class="rider-dot"></div>', iconSize: [14, 14], iconAnchor: [7, 7] })
+const riderIcon = L.divIcon({
+  className: '', html: '<div style="position:relative;width:16px;height:16px"><div class="rider-ring"></div><div class="rider-dot"></div></div>',
+  iconSize: [16, 16], iconAnchor: [8, 8],
+})
 const refusalIcon = L.divIcon({ className: '', html: '<div class="refusal-dot"></div>', iconSize: [12, 12], iconAnchor: [6, 6] })
 const endIcon = (label: string, color: string) => L.divIcon({
-  className: '',
-  html: `<div style="background:${color};color:#191a1c;font:700 10px Inter,sans-serif;padding:2px 6px;border-radius:4px;white-space:nowrap">${label}</div>`,
-  iconSize: [0, 0], iconAnchor: [12, 10],
+  className: '', html: `<div class="end-pin" style="background:${color}">${label}</div>`, iconSize: [0, 0], iconAnchor: [0, 0],
 })
 
 /** Polyline that draws itself on when its geometry changes. */
@@ -64,6 +65,8 @@ function ClickPicker({ onPick }: { onPick?: (lat: number, lon: number) => void }
 
 export interface RouteMapProps {
   active: Plan | null
+  /** index of the last active-path vertex the simulated rider has passed */
+  riddenIndex: number
   candidates: Candidate[]
   selected: number | null
   onSelect: (i: number) => void
@@ -91,6 +94,12 @@ export default function RouteMap(p: RouteMapProps) {
     return out
   }, [p.active, p.candidates, p.selected])
 
+  const ridden = useMemo(() => {
+    const path = p.active?.path
+    if (!path?.length || !p.rider) return []
+    return [...path.slice(0, p.riddenIndex + 1), p.rider]
+  }, [p.active, p.riddenIndex, p.rider])
+
   const coverageRect: [number, number][] = [
     [p.coverage.lat[0], p.coverage.lon[0]], [p.coverage.lat[0], p.coverage.lon[1]],
     [p.coverage.lat[1], p.coverage.lon[1]], [p.coverage.lat[1], p.coverage.lon[0]], [p.coverage.lat[0], p.coverage.lon[0]],
@@ -99,27 +108,43 @@ export default function RouteMap(p: RouteMapProps) {
   return (
     <MapContainer center={[47.7, 11.3]} zoom={9} className="h-full w-full" zoomControl={false} attributionControl>
       <TileLayer url={DARK} attribution={DARK_ATTR} maxZoom={16} />
-      <Polyline positions={coverageRect} pathOptions={{ color: '#999BA1', weight: 1, opacity: 0.35, dashArray: '4 6' }} />
+      <ZoomControl position="topright" />
+      <ScaleControl position="topright" imperial={false} />
+      <Polyline positions={coverageRect} pathOptions={{ color: '#6DB6E8', weight: 1, opacity: 0.3, dashArray: '4 8' }} />
       <FitOnce bounds={bounds} />
       <ClickPicker onPick={p.onPick} />
 
       {p.active?.path?.length ? (
-        <DrawOnLine path={p.active.path} color="#1C69D4" weight={5} opacity={p.candidates.length ? 0.55 : 0.95} animate>
-          <Tooltip sticky>active route</Tooltip>
-        </DrawOnLine>
+        <>
+          <Polyline positions={p.active.path.map(toLatLng)} className="cand-line"
+            pathOptions={{ color: '#1C69D4', weight: 14, opacity: p.candidates.length ? 0.1 : 0.22, lineCap: 'round', lineJoin: 'round', interactive: false }} />
+          <DrawOnLine path={p.active.path} color="#1C69D4" weight={5} opacity={p.candidates.length ? 0.5 : 0.95} animate>
+            <Tooltip sticky>active route</Tooltip>
+          </DrawOnLine>
+          {ridden.length > 1 ? (
+            <Polyline positions={ridden.map(toLatLng)}
+              pathOptions={{ color: '#F1F2F3', weight: 5, opacity: p.candidates.length ? 0.35 : 0.85, lineCap: 'round', lineJoin: 'round', interactive: false }} />
+          ) : null}
+        </>
       ) : null}
 
       {p.candidates.filter((c) => c.path.length).map((c) => {
         const isSel = c.index === p.selected
         const color = CAND_COLORS[c.index % CAND_COLORS.length]
         return (
-          <DrawOnLine key={`${c.index}-${c.path.length}-${c.path[0]?.join(',')}`} path={c.path} color={color}
-            weight={isSel ? 6 : 3} opacity={isSel ? 1 : p.selected == null ? 0.8 : 0.3}
-            dashed={c.verdict !== 'accepted'} animate onClick={() => p.onSelect(c.index)}>
-            <Tooltip sticky>
-              #{c.index + 1} {c.mode} @ {c.thrill.toFixed(2)} — {c.verdict}{c.km != null ? ` · ${c.km} km` : ''}
-            </Tooltip>
-          </DrawOnLine>
+          <span key={`${c.index}-${c.path.length}-${c.path[0]?.join(',')}`}>
+            {isSel ? (
+              <Polyline positions={c.path.map(toLatLng)} className="cand-line"
+                pathOptions={{ color, weight: 16, opacity: 0.18, lineCap: 'round', lineJoin: 'round', interactive: false }} />
+            ) : null}
+            <DrawOnLine path={c.path} color={color}
+              weight={isSel ? 6 : 3} opacity={isSel ? 1 : p.selected == null ? 0.8 : 0.3}
+              dashed={c.verdict !== 'accepted'} animate onClick={() => p.onSelect(c.index)}>
+              <Tooltip sticky>
+                <span className="font-mono">#{c.index + 1}</span> {c.mode} @ {c.thrill.toFixed(2)} — {c.verdict}{c.km != null ? ` · ${c.km} km` : ''}
+              </Tooltip>
+            </DrawOnLine>
+          </span>
         )
       })}
 
@@ -136,13 +161,8 @@ export default function RouteMap(p: RouteMapProps) {
       ))}
 
       {p.start ? <Marker position={p.start} icon={endIcon('A', '#F1F2F3')} /> : null}
-      {p.dest ? <Marker position={p.dest} icon={endIcon('B', '#F1F2F3')} /> : null}
-      {p.rider ? (
-        <>
-          <CircleMarker center={toLatLng(p.rider)} radius={18} pathOptions={{ color: '#1C69D4', weight: 1, opacity: 0.35, fillOpacity: 0.08 }} />
-          <Marker position={toLatLng(p.rider)} icon={riderIcon} zIndexOffset={1000} />
-        </>
-      ) : null}
+      {p.dest ? <Marker position={p.dest} icon={endIcon('B', '#6DB6E8')} /> : null}
+      {p.rider ? <Marker position={toLatLng(p.rider)} icon={riderIcon} zIndexOffset={1000} /> : null}
     </MapContainer>
   )
 }
