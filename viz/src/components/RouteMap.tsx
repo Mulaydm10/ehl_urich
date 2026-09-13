@@ -1,40 +1,59 @@
 import L from 'leaflet'
-import { Layers, Mountain, Moon, Satellite } from 'lucide-react'
+import { Compass, Globe2, Layers, Map as MapIcon, Mountain, Moon, Satellite, TreePine } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, Marker, Pane, Polyline, ScaleControl, TileLayer, Tooltip, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
 import type { Candidate, LonLat, Plan, Refusal } from '../lib/api'
 import { toLatLng } from '../lib/geo'
 
-// All keyless Esri services (CARTO's Dark Matter now watermarks tiles served
-// without an API key). Each style is a stack: relief/imagery, then labels.
+// Keyless tile services only (CARTO's Dark Matter now watermarks tiles served
+// without an API key). Each style is a stack of layers, bottom first.
 const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services'
 const tile = (svc: string) => `${ESRI}/${svc}/MapServer/tile/{z}/{y}/{x}`
-const ATTR = 'Tiles &copy; Esri &mdash; Esri, Maxar, Earthstar Geographics, DeLorme, NAVTEQ'
+const ESRI_ATTR = 'Tiles &copy; Esri &mdash; Esri, Maxar, Earthstar Geographics, DeLorme, NAVTEQ, USGS, NPS'
+const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 
-export type Basemap = 'terrain' | 'dark' | 'satellite'
-interface Layer { url: string; opacity?: number; className?: string; maxZoom: number }
-const STYLES: Record<Basemap, { label: string; icon: typeof Mountain; layers: Layer[] }> = {
-  terrain: {
-    label: 'Terrain', icon: Mountain,
+export type Basemap = 'topo' | 'streets' | 'outdoors' | 'natgeo' | 'satellite' | 'terrain-dark' | 'dark'
+interface Layer { url: string; attribution?: string; opacity?: number; className?: string; maxZoom: number; subdomains?: string }
+interface Style { label: string; hint: string; icon: typeof Mountain; light: boolean; layers: Layer[] }
+export const STYLES: Record<Basemap, Style> = {
+  topo: {
+    label: 'Topo', hint: 'green relief, roads, trails', icon: Mountain, light: true,
+    layers: [{ url: tile('World_Topo_Map'), attribution: ESRI_ATTR, maxZoom: 18 }],
+  },
+  streets: {
+    label: 'Streets', hint: 'road map', icon: MapIcon, light: true,
+    layers: [{ url: tile('World_Street_Map'), attribution: ESRI_ATTR, maxZoom: 18 }],
+  },
+  outdoors: {
+    label: 'Outdoors', hint: 'OpenTopoMap contours', icon: TreePine, light: true,
+    layers: [{ url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', subdomains: 'abc',
+      attribution: `${OSM_ATTR}, SRTM | &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)`, maxZoom: 16 }],
+  },
+  natgeo: {
+    label: 'NatGeo', hint: 'atlas style', icon: Compass, light: true,
+    layers: [{ url: tile('NatGeo_World_Map'), attribution: ESRI_ATTR, maxZoom: 16 }],
+  },
+  satellite: {
+    label: 'Satellite', hint: 'imagery + roads + places', icon: Satellite, light: false,
     layers: [
-      { url: tile('Elevation/World_Hillshade_Dark'), maxZoom: 16, className: 'tile-relief' },
+      { url: tile('World_Imagery'), attribution: ESRI_ATTR, maxZoom: 18 },
+      { url: tile('Reference/World_Transportation'), maxZoom: 18, opacity: 0.8 },
+      { url: tile('Reference/World_Boundaries_and_Places'), maxZoom: 18 },
+    ],
+  },
+  'terrain-dark': {
+    label: 'Terrain dark', hint: 'hillshade, dark roads', icon: Globe2, light: false,
+    layers: [
+      { url: tile('Elevation/World_Hillshade_Dark'), attribution: ESRI_ATTR, maxZoom: 16, className: 'tile-relief' },
       { url: tile('Canvas/World_Dark_Gray_Base'), maxZoom: 16, opacity: 0.55, className: 'tile-roads' },
       { url: tile('Canvas/World_Dark_Gray_Reference'), maxZoom: 16, className: 'tile-labels' },
     ],
   },
   dark: {
-    label: 'Dark', icon: Moon,
+    label: 'Dark', hint: 'flat dark canvas', icon: Moon, light: false,
     layers: [
-      { url: tile('Canvas/World_Dark_Gray_Base'), maxZoom: 16 },
+      { url: tile('Canvas/World_Dark_Gray_Base'), attribution: ESRI_ATTR, maxZoom: 16 },
       { url: tile('Canvas/World_Dark_Gray_Reference'), maxZoom: 16 },
-    ],
-  },
-  satellite: {
-    label: 'Satellite', icon: Satellite,
-    layers: [
-      { url: tile('World_Imagery'), maxZoom: 18, className: 'tile-imagery' },
-      { url: tile('Reference/World_Transportation'), maxZoom: 18, opacity: 0.7 },
-      { url: tile('Reference/World_Boundaries_and_Places'), maxZoom: 18 },
     ],
   },
 }
@@ -46,7 +65,7 @@ function BasemapPicker({ value, onChange }: { value: Basemap; onChange: (b: Base
     if (ref.current) { L.DomEvent.disableClickPropagation(ref.current); L.DomEvent.disableScrollPropagation(ref.current) }
   }, [])
   return (
-    <div className="leaflet-top leaflet-left pointer-events-none" style={{ top: 10, left: 10 }}>
+    <div className="leaflet-top leaflet-right pointer-events-none" style={{ top: 112, right: 10 }}>
       <div className="leaflet-control pointer-events-auto">
         <div ref={ref} className="basemap-picker" onMouseLeave={() => setOpen(false)}>
           <button type="button" className="basemap-btn" onClick={() => setOpen((o) => !o)} title="Basemap">
@@ -59,7 +78,7 @@ function BasemapPicker({ value, onChange }: { value: Basemap; onChange: (b: Base
                 return (
                   <button type="button" key={k} className={`basemap-item ${k === value ? 'is-on' : ''}`}
                     onClick={() => { onChange(k); setOpen(false) }}>
-                    <Icon size={13} /> {STYLES[k].label}
+                    <Icon size={13} /> <span>{STYLES[k].label}</span><span className="basemap-hint">{STYLES[k].hint}</span>
                   </button>
                 )
               })}
@@ -145,8 +164,9 @@ export interface RouteMapProps {
 }
 
 export default function RouteMap(p: RouteMapProps) {
-  const [basemap, setBasemap] = useState<Basemap>('terrain')
+  const [basemap, setBasemap] = useState<Basemap>('topo')
   const style = STYLES[basemap]
+  const trail = style.light ? '#1b1d22' : '#F1F2F3'
   const bounds = useMemo(() => {
     const pts: [number, number][] = []
     if (p.active?.path?.length) pts.push(...p.active.path.map(toLatLng))
@@ -175,9 +195,9 @@ export default function RouteMap(p: RouteMapProps) {
   ]
 
   return (
-    <MapContainer center={[47.7, 11.3]} zoom={9} className="h-full w-full" zoomControl={false} attributionControl>
+    <MapContainer center={[47.7, 11.3]} zoom={9} className={`h-full w-full ${style.light ? 'map-light' : 'map-dark'}`} zoomControl={false} attributionControl>
       {style.layers.map((l, i) => (
-        <TileLayer key={`${basemap}-${i}`} url={l.url} attribution={i === 0 ? ATTR : undefined}
+        <TileLayer key={`${basemap}-${i}`} url={l.url} attribution={l.attribution} subdomains={l.subdomains ?? 'abc'}
           maxZoom={l.maxZoom} opacity={l.opacity ?? 1} className={l.className} />
       ))}
       <BasemapPicker value={basemap} onChange={setBasemap} />
@@ -203,7 +223,7 @@ export default function RouteMap(p: RouteMapProps) {
           ) : null}
           {ridden.length > 1 ? (
             <Polyline positions={ridden.map(toLatLng)}
-              pathOptions={{ color: '#F1F2F3', weight: 5, opacity: p.candidates.length ? 0.35 : 0.85, lineCap: 'round', lineJoin: 'round', interactive: false }} />
+              pathOptions={{ color: trail, weight: 5, opacity: p.candidates.length ? 0.35 : 0.85, lineCap: 'round', lineJoin: 'round', interactive: false }} />
           ) : null}
         </>
       ) : null}

@@ -118,6 +118,7 @@ export default function App() {
   const [followPhone, setFollowPhone] = useState(true)
   const [stage, setStage] = useState<string | null>(null)
   const seq = useRef(0)
+  const feedRider = useRef<string | null>(null)
   const queue = useRef<Promise<void>>(Promise.resolve())
   const phoneRide = feed?.ride ?? null
   const following = followPhone && !!feed?.phone_live && !!phoneRide
@@ -222,6 +223,11 @@ export default function App() {
     // replay another rider's history.
     seq.current = -1
     setEvents([]); setFeed(null)
+    if (feedRider.current !== riderKey) {
+      // another rider's phone: nothing shown so far belongs to it
+      feedRider.current = riderKey
+      setActive(null); setActiveLabel(''); setReroute(null); setSelected(null); setRerouteErr(null); setT(0)
+    }
     const poll = async () => {
       try {
         const f = await api.feed(riderKey, seq.current < 0 ? Number.MAX_SAFE_INTEGER : seq.current)
@@ -320,6 +326,7 @@ export default function App() {
           <p className="text-[11px] leading-snug text-dim">
             {following
               ? <>Position and route come from the phone's live reports; the timeline below is off. When the rider talks to the assistant, its tool calls appear here and the map replays the engine's search on its own.</>
+              : feed?.ride && !followPhone ? <>Following is off: the phone still reports (last {fmt(feed.ride_age_s, 0)} s ago) but the simulated rider is shown. Assistant tool calls still arrive here.</>
               : feed?.ride ? <>The phone's last report is {fmt(feed.ride_age_s, 0)} s old, so the simulated rider is shown instead. Assistant tool calls still arrive here.</>
               : <>Waiting for <span className="font-mono text-ash">{riderKey}</span>'s phone: nothing arrives until it navigates (position reports) or the rider uses the assistant. Meanwhile the controls below drive a simulated ride.</>}
           </p>
