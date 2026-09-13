@@ -239,6 +239,17 @@ class VizRerouteReq(BaseModel):
     current_cells: list[str] = []
 
 
+class VizSearchTraceReq(BaseModel):
+    """Trace of the engine's Dijkstra from A to B at one dial: the cells it
+    settled, in order. Read-only; routes nothing."""
+    a: list[float]
+    b: list[float]
+    rider_key: str = "userA"
+    thrill: float = 0.5
+    mode: str = "flow"
+    limit: int = 4000
+
+
 class CopilotDismissReq(BaseModel):
     session: str = "default"
     kind: str
@@ -315,6 +326,13 @@ def copilot_dismiss(req: CopilotDismissReq) -> JSONResponse:
 @app.post("/api/copilot/reset")
 def copilot_reset(req: CopilotDismissReq) -> JSONResponse:
     return ok(COPILOT.reset(req.session))
+
+
+@app.post("/api/viz/search_trace")
+def viz_search_trace(req: VizSearchTraceReq) -> JSONResponse:
+    return _engine(lambda: ENGINE.search_trace(
+        tuple(req.a), tuple(req.b), req.rider_key, req.thrill, mode=req.mode,
+        limit=max(100, min(20000, req.limit))))
 
 
 @app.post("/api/viz/reroute_candidates")

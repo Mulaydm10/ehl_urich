@@ -17,6 +17,7 @@ values already published in docs 22 / 25.
 
 from __future__ import annotations
 
+import heapq
 import math
 
 # coverage box (doc 25 §1)
@@ -252,6 +253,63 @@ def route(a, b, rider_key: str = "userA", z_star: float = 0.5,
     return {"ok": True, "note": "", "cells": cells, "path": path, "segments": seg,
             "refusals": refusals, "summary": summary, "rider": rider_key,
             "z_star": float(z_star), "explain": _explain(summary, refusals, rider_key, cells)}
+
+
+def search_trace(a, b, rider_key: str = "userA", z_star: float = 0.5,
+                 mode: str = "flow", limit: int = 4000) -> dict:
+    """A real Dijkstra, but over a MOCK lattice: there is no graph on this
+    machine, so the cells and costs are synthetic (deterministic from the
+    endpoints). The settle order is genuine for that lattice; label it mock."""
+    if not _in_box(a) or not _in_box(b):
+        return {"ok": False, "note": "Outside coverage; there is no graph to search."}
+    n = 44
+    la0, la1 = sorted((a[0], b[0]))
+    lo0, lo1 = sorted((a[1], b[1]))
+    pad_la = max(0.04, (la1 - la0) * 0.35)
+    pad_lo = max(0.06, (lo1 - lo0) * 0.35)
+    la0, la1, lo0, lo1 = la0 - pad_la, la1 + pad_la, lo0 - pad_lo, lo1 + pad_lo
+    seed = _seed(a[0], a[1], b[0], b[1], z_star)
+
+    def cost(i, j):        # per-cell "1 + lam*(1-flow)"-shaped weight, synthetic
+        h = (i * 73856093 ^ j * 19349663 ^ seed) & 0xFFFF
+        return 1.0 + 6.0 * (h / 0xFFFF) ** 2
+
+    def ll(i, j):
+        return la0 + (la1 - la0) * i / (n - 1), lo0 + (lo1 - lo0) * j / (n - 1)
+
+    def near(pt):
+        return (round((pt[0] - la0) / (la1 - la0) * (n - 1)), round((pt[1] - lo0) / (lo1 - lo0) * (n - 1)))
+
+    src, dst = near(a), near(b)
+    dist = {src: 0.0}
+    heap = [(0.0, src)]
+    settled: list[tuple[int, int, float]] = []
+    done = set()
+    reached = False
+    while heap:
+        d, u = heapq.heappop(heap)
+        if u in done:
+            continue
+        done.add(u)
+        settled.append((u[0], u[1], d))
+        if u == dst:
+            reached = True
+            break
+        for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)):
+            v = (u[0] + di, u[1] + dj)
+            if not (0 <= v[0] < n and 0 <= v[1] < n):
+                continue
+            step = math.hypot(di, dj) * 120.0 * cost(*v)
+            nd = d + step
+            if nd < dist.get(v, math.inf):
+                dist[v] = nd
+                heapq.heappush(heap, (nd, v))
+    stride = max(1, -(-len(settled) // int(limit)))
+    pts = [[round(ll(i, j)[1], 5), round(ll(i, j)[0], 5), round(d, 0)] for i, j, d in settled[::stride]]
+    return {"ok": True, "graph": "mock", "reached": reached,
+            "algorithm": "dijkstra (heapq) over a synthetic lattice — mock, not BMW cells",
+            "n_graph": n * n, "n_settled": len(settled), "stride": stride,
+            "cost_b": round(settled[-1][2], 0) if reached else None, "n_refused_edges": 0, "settled": pts}
 
 
 def loop(start, hours: float = 2.0, rider_key: str = "userA", z_star: float = 0.5,

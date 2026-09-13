@@ -164,3 +164,8 @@ input[type="range"].thrill::-moz-range-progress { background: transparent; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #2e3137; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #3a3d44; }
+
+.search-canvas {
+  position: absolute;
+  pointer-events: none;
+}

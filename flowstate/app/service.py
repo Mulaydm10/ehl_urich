@@ -201,6 +201,37 @@ def route(a, b, rider_key: str = "userA", z_star: float = 0.5,
     return _pack(r, g, rider_key, z_star)
 
 
+def search_trace(a, b, rider_key: str = "userA", z_star: float = 0.5,
+                 mode: str = "flow", limit: int = 4000) -> dict:
+    """Read-only: the order in which the engine's Dijkstra settles cells for
+    A -> B on the same gated graph `route()` uses. Dijkstra settles nodes in
+    non-decreasing cost, so the single-source cost array from scipy *is* the
+    trace: every finite cost <= cost[B] was settled before B, in that order.
+    Nothing is routed here; it is the search, drawn."""
+    s = _need()
+    for pt, name in ((a, "start"), (b, "finish")):
+        if not R.in_coverage(pt[0], pt[1]):
+            return {"ok": False, "note": f"The {name} is outside coverage; there is no graph to search."}
+    g = _graph(rider_key, z_star, mode=mode)
+    sa = R.snap(a[0], a[1], s["cells"], nodes=g.nodes)
+    sb = R.snap(b[0], b[1], s["cells"], nodes=g.nodes)
+    si, ti = g.index[sa], g.index[sb]
+    dist = R.dijkstra(g.matrix, directed=True, indices=si)
+    reached = bool(np.isfinite(dist[ti]))
+    cut = dist[ti] if reached else np.inf
+    idx = np.where(np.isfinite(dist) & (dist <= cut))[0]
+    order = idx[np.argsort(dist[idx], kind="stable")]
+    n = int(len(order))
+    stride = max(1, -(-n // int(limit)))
+    kept = order[::stride]
+    ll = s["cells"].set_index("morton_code")[["lat", "lon"]].reindex(g.nodes[kept])
+    pts = [[round(float(lo), 5), round(float(la), 5), round(float(d), 0)]
+           for la, lo, d in zip(ll["lat"], ll["lon"], dist[kept]) if np.isfinite(la)]
+    return {"ok": True, "graph": "real", "reached": reached, "algorithm": "dijkstra (scipy.sparse.csgraph), fit cost",
+            "n_graph": int(g.n_nodes), "n_settled": n, "stride": stride, "cost_b": (round(float(cut), 0) if reached else None),
+            "n_refused_edges": int(len(g.refused)), "settled": pts}
+
+
 def loop(start, hours: float, rider_key: str = "userA",
          z_star: float = 0.5, lam: float = R.LAMBDA_DEFAULT,
          mode: str = "flow") -> dict:

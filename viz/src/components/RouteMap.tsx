@@ -2,7 +2,7 @@ import L from 'leaflet'
 import { Compass, Globe2, Layers, Map as MapIcon, Mountain, Moon, Satellite, TreePine } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, Marker, Pane, Polyline, ScaleControl, TileLayer, Tooltip, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
-import type { Candidate, LonLat, Plan, Refusal } from '../lib/api'
+import type { Candidate, LonLat, Plan, Refusal, SearchTrace } from '../lib/api'
 import { toLatLng } from '../lib/geo'
 
 // Keyless tile services only (CARTO's Dark Matter now watermarks tiles served
@@ -141,6 +141,67 @@ function FitOnce({ bounds }: { bounds: L.LatLngBounds | null }) {
   return null
 }
 
+/** ms the settled-cell sweep takes; App waits this long before drawing candidates */
+export const SEARCH_ANIM_MS = 2600
+
+/** Draws the engine's Dijkstra settle order on a canvas: cells appear in
+ *  the order the search settled them (cheap first), the frontier glows. */
+function SearchLayer({ trace, light }: { trace: SearchTrace | null; light: boolean }) {
+  const map = useMap()
+  const canvas = useRef<HTMLCanvasElement | null>(null)
+  const shown = useRef(0)
+  const draw = () => {
+    const c = canvas.current
+    if (!c) return
+    const size = map.getSize()
+    if (c.width !== size.x || c.height !== size.y) { c.width = size.x; c.height = size.y }
+    const tl = map.containerPointToLayerPoint([0, 0])
+    L.DomUtil.setPosition(c, tl)
+    const ctx = c.getContext('2d')
+    if (!ctx) return
+    ctx.clearRect(0, 0, c.width, c.height)
+    if (!trace?.settled.length) return
+    const pts = trace.settled
+    const n = Math.min(pts.length, Math.floor(shown.current))
+    const max = pts[pts.length - 1][2] || 1
+    const z = map.getZoom()
+    const r = Math.max(1.5, Math.min(5, (z - 8) * 1.1))
+    for (let i = 0; i < n; i++) {
+      const [lon, lat, cost] = pts[i]
+      const q = map.latLngToContainerPoint([lat, lon])
+      const t = cost / max
+      const frontier = i > n - Math.max(12, pts.length * 0.06)
+      ctx.fillStyle = frontier ? '#FFFFFF' : `hsla(${190 - t * 160}, 90%, ${light ? 45 : 60}%, ${light ? 0.55 : 0.7})`
+      ctx.beginPath(); ctx.arc(q.x, q.y, frontier ? r * 1.6 : r, 0, Math.PI * 2); ctx.fill()
+    }
+  }
+  useEffect(() => {
+    const c = L.DomUtil.create('canvas', 'search-canvas leaflet-zoom-hide') as HTMLCanvasElement
+    const pane = map.getPane('search') ?? map.createPane('search')
+    pane.style.zIndex = '395'                // over tiles, under the route SVG
+    pane.appendChild(c)
+    canvas.current = c
+    map.on('move zoom resize viewreset', draw)
+    return () => { map.off('move zoom resize viewreset', draw); c.remove(); canvas.current = null }
+  }, [map]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    shown.current = 0
+    if (!trace?.settled.length) { draw(); return }
+    const total = trace.settled.length
+    let raf = 0
+    const t0 = performance.now()
+    const step = (now: number) => {
+      const k = Math.min(1, (now - t0) / SEARCH_ANIM_MS)
+      shown.current = total * (1 - Math.pow(1 - k, 2))     // ease-out: the frontier slows as costs grow
+      draw()
+      if (k < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [trace, light]) // eslint-disable-line react-hooks/exhaustive-deps
+  return null
+}
+
 function ClickPicker({ onPick }: { onPick?: (lat: number, lon: number) => void }) {
   useMapEvents({ click: (e) => onPick?.(e.latlng.lat, e.latlng.lng) })
   return null
@@ -161,6 +222,8 @@ export interface RouteMapProps {
   onRemoveVia?: (i: number) => void
   onPick?: (lat: number, lon: number) => void
   coverage: { lat: readonly [number, number]; lon: readonly [number, number] }
+  /** the engine's Dijkstra trace for the re-plan in progress, or null */
+  search?: SearchTrace | null
 }
 
 export default function RouteMap(p: RouteMapProps) {
@@ -207,6 +270,7 @@ export default function RouteMap(p: RouteMapProps) {
       <Polyline positions={coverageRect} pathOptions={{ color: '#6DB6E8', weight: 1, opacity: 0.3, dashArray: '4 8' }} />
       <FitOnce bounds={bounds} />
       <ClickPicker onPick={p.onPick} />
+      <SearchLayer trace={p.search ?? null} light={style.light} />
 
       {p.active?.path?.length ? (
         <>

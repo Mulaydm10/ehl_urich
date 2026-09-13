@@ -105,6 +105,22 @@ export interface RerouteMeta {
   variants_tried: { thrill: number; mode: string; ok: boolean; km?: number; note?: string }[]
 }
 
+/** The engine's Dijkstra, traced: cells in the order they were settled
+ *  ([lon, lat, cost]), up to the destination. `graph` says whose graph. */
+export interface SearchTrace {
+  ok: boolean
+  note?: string
+  graph: 'real' | 'mock'
+  reached: boolean
+  algorithm: string
+  n_graph: number
+  n_settled: number
+  stride: number
+  cost_b: number | null
+  n_refused_edges: number
+  settled: [number, number, number][]
+}
+
 export interface RerouteResult extends Plan {
   candidates: Candidate[]
   reroute: RerouteMeta
@@ -243,6 +259,8 @@ export const api = {
     call<Plan>('/api/route/via', { method: 'POST', body: JSON.stringify({ points, rider_key, z_star, mode }) }),
   loop: (start: [number, number], hours: number, rider_key: string, z_star: number, mode: string) =>
     call<Plan>('/api/loop', { method: 'POST', body: JSON.stringify({ start, hours, rider_key, z_star, mode }) }),
+  searchTrace: (body: { a: [number, number]; b: [number, number]; rider_key: string; thrill: number; mode: string }) =>
+    call<SearchTrace>('/api/viz/search_trace', { method: 'POST', body: JSON.stringify(body) }),
   rerouteCandidates: (body: {
     lat: number; lon: number; rider_key: string; thrill: number; mode: string; change: string
     destination: [number, number] | null; current_cells: string[]; hours?: number

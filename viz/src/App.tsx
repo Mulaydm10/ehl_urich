@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import RouteMap, { CAND_COLORS } from './components/RouteMap'
+import RouteMap, { CAND_COLORS, SEARCH_ANIM_MS } from './components/RouteMap'
 import { Activity, FlaskConical, Flag, Gauge, GitFork, Layers, Loader2, MapPin, Mic, Pause, Play, Plus, Route, ShieldAlert, ShieldCheck, SlidersHorizontal, Smartphone, User, WifiOff, X } from 'lucide-react'
 import { Bar, Chip, Notice, Section, Stat, Verdict, fmt, pct } from './components/ui'
 import {
   ApiError, COVERAGE, api, inCoverage, planFromResult, summaryOf,
-  type Candidate, type Feed, type FeedEvent, type Health, type Mode, type Plan, type Presets, type RerouteResult, type Rider, type Status,
+  type Candidate, type Feed, type FeedEvent, type Health, type Mode, type Plan, type Presets, type RerouteResult, type Rider, type SearchTrace, type Status,
 } from './lib/api'
 import { cumulativeKm, nearestIndex, pointAt } from './lib/geo'
 
@@ -91,7 +91,7 @@ export default function App() {
 
   const planWith = async (stops: [number, number][]) => {
     if (!start || !dest) return
-    setPlanning(true); setActiveErr(null); setReroute(null); setSelected(null)
+    setPlanning(true); setActiveErr(null); setReroute(null); setSelected(null); setSearch(null)
     try {
       const p = stops.length
         ? await api.routeVia([start, ...stops, dest], riderKey, thrill, mode)
@@ -156,15 +156,34 @@ export default function App() {
   const [rerouteErr, setRerouteErr] = useState<string | null>(null)
   const [rerouting, setRerouting] = useState(false)
   const [selected, setSelected] = useState<number | null>(null)
+  const [search, setSearch] = useState<SearchTrace | null>(null)
+
+  // The engine's own Dijkstra from the live position, traced and swept over
+  // the map before the candidates draw. Failure to trace never blocks the
+  // re-plan; it is a read-only look at the search, not part of it.
+  const showSearch = async (from: [number, number], to: [number, number] | null, rider: string, z: number, m: string) => {
+    setSearch(null)
+    if (!to) return
+    try {
+      const tr = await api.searchTrace({ a: from, b: to, rider_key: rider, thrill: z, mode: m })
+      if (!tr.ok) return
+      setSearch(tr)
+      setStage(`${tr.graph === 'mock' ? 'mock graph: ' : ''}Dijkstra settling ${tr.n_settled.toLocaleString()} of ${tr.n_graph.toLocaleString()} cells, cheapest first`)
+      await sleep(SEARCH_ANIM_MS)
+    } catch { /* no trace: candidates still come */ }
+  }
 
   const doReroute = async () => {
     if (!riderPos || !active) return
     setRerouting(true); setRerouteErr(null); setPlaying(false)
     try {
-      const res = await api.rerouteCandidates({
-        lat: riderPos.point[1], lon: riderPos.point[0], rider_key: riderKey, thrill, mode, change,
-        destination: dest, current_cells: active.cells ?? [],
-      })
+      const [res] = await Promise.all([
+        api.rerouteCandidates({
+          lat: riderPos.point[1], lon: riderPos.point[0], rider_key: riderKey, thrill, mode, change,
+          destination: dest, current_cells: active.cells ?? [],
+        }),
+        showSearch([riderPos.point[1], riderPos.point[0]], dest, riderKey, thrill, mode),
+      ])
       setReroute(res)
       const win = res.candidates.find((c) => c.verdict === 'accepted')
       setSelected(win ? win.index : null)
@@ -172,7 +191,7 @@ export default function App() {
       setReroute(null)
       const b = e instanceof ApiError ? (e.body as { candidates?: Candidate[]; tried?: unknown } | null) : null
       setRerouteErr(errText(e) + (b?.candidates ? ` (${b.candidates.length} variants planned, none usable)` : ''))
-    } finally { setRerouting(false) }
+    } finally { setRerouting(false); setStage(null) }
   }
 
   // ---- phone feed: the ride the phone is on and the tools its assistant ran
@@ -194,11 +213,14 @@ export default function App() {
     setStage(`assistant asked for “${m.change}” — re-running the same search, keeping every candidate`)
     setRerouting(true); setRerouteErr(null); setPlaying(false)
     try {
-      const res = await api.rerouteCandidates({
-        lat: ev.ride.lat, lon: ev.ride.lon, rider_key: ev.ride.rider_key ?? 'userA',
-        thrill: ev.ride.thrill ?? 0.5, mode: ev.ride.mode ?? 'flow', change: m.change,
-        destination: m.destination, current_cells: ev.ride.route?.cells ?? [],
-      })
+      const [res] = await Promise.all([
+        api.rerouteCandidates({
+          lat: ev.ride.lat, lon: ev.ride.lon, rider_key: ev.ride.rider_key ?? 'userA',
+          thrill: ev.ride.thrill ?? 0.5, mode: ev.ride.mode ?? 'flow', change: m.change,
+          destination: m.destination, current_cells: ev.ride.route?.cells ?? [],
+        }),
+        showSearch([ev.ride.lat, ev.ride.lon], m.destination, ev.ride.rider_key ?? 'userA', ev.ride.thrill ?? 0.5, ev.ride.mode ?? 'flow'),
+      ])
       setReroute(res); setRerouting(false)
       for (const c of res.candidates) {
         setSelected(c.index)
@@ -209,6 +231,7 @@ export default function App() {
       setSelected(win ? win.index : null)
       setStage(win ? `the phone follows pass ${win.index + 1}: ${m.mode_to} @ ${m.thrill_to.toFixed(2)}` : 'no candidate was usable')
       await sleep(STEP_MS)
+      setSearch(null)
       setActive(plan); setT(0)
       setActiveLabel(`${m.mode_to} @ ${m.thrill_to.toFixed(2)} — re-planned by voice${m.reason ? ` (“${m.reason}”)` : ''}`)
     } catch (e) {
@@ -226,7 +249,7 @@ export default function App() {
     if (feedRider.current !== riderKey) {
       // another rider's phone: nothing shown so far belongs to it
       feedRider.current = riderKey
-      setActive(null); setActiveLabel(''); setReroute(null); setSelected(null); setRerouteErr(null); setT(0)
+      setActive(null); setActiveLabel(''); setReroute(null); setSelected(null); setSearch(null); setRerouteErr(null); setT(0)
     }
     const poll = async () => {
       try {
@@ -268,7 +291,7 @@ export default function App() {
     setActiveLabel(`${selectedCand.mode} @ ${selectedCand.thrill.toFixed(2)} (re-planned from live position)`)
     setThrill(selectedCand.thrill)
     if (selectedCand.mode.startsWith('custom:')) { setModeSel('custom'); setCustomText(selectedCand.mode) } else setModeSel(selectedCand.mode)
-    setReroute(null); setSelected(null); setT(0)
+    setReroute(null); setSelected(null); setSearch(null); setT(0)
   }
 
   const shownPlan: Plan | null = selectedCand ? candidateAsPlan(selectedCand) : active
@@ -470,7 +493,7 @@ export default function App() {
 
       {/* centre: map + timeline */}
       <main className="relative">
-        <RouteMap active={active} riddenIndex={riderPos?.index ?? 0} candidates={reroute?.candidates ?? []} selected={selected} onSelect={setSelected}
+        <RouteMap active={active} riddenIndex={riderPos?.index ?? 0} candidates={reroute?.candidates ?? []} selected={selected} onSelect={setSelected} search={search}
           rider={riderPos?.point ?? null} start={start} dest={dest} coverage={COVERAGE}
           via={via} onRemoveVia={(i) => setStops(via.filter((_, j) => j !== i))}
           onPick={pick ? (lat, lon) => {
@@ -483,7 +506,7 @@ export default function App() {
 
         {stage ? (
           <div className="glass pointer-events-none absolute left-1/2 top-3 z-[500] flex -translate-x-1/2 animate-rise items-center gap-2 rounded-full px-4 py-1.5 text-[12px]">
-            <Mic size={12} className="text-mlight" /> <span className="text-bone">{stage}</span>
+            {following ? <Mic size={12} className="text-mlight" /> : <GitFork size={12} className="text-mlight" />} <span className="text-bone">{stage}</span>
           </div>
         ) : null}
         {pick && !stage ? (
@@ -509,6 +532,11 @@ export default function App() {
         {reroute?.candidates.length ? (
           <div className="glass absolute left-3 top-3 z-[500] animate-rise rounded-xl px-3.5 py-2.5 text-[11.5px]">
             <div className="mb-1.5 flex items-center gap-1.5 text-ash"><GitFork size={12} /> {reroute.candidates.length} deterministic engine passes · “{CHANGES.find((c) => c.key === reroute.reroute.change)?.label}”</div>
+            {search ? (
+              <div className="mb-1.5 text-[10.5px] text-dim">
+                dots: Dijkstra settle order at the live dial{search.graph === 'mock' ? ' — mock lattice, not BMW cells' : ` — ${search.n_settled.toLocaleString()} of ${search.n_graph.toLocaleString()} gated cells, ${search.n_refused_edges.toLocaleString()} edges refused`}
+              </div>
+            ) : null}
             {reroute.candidates.map((c) => (
               <button type="button" key={c.index} onClick={() => setSelected(c.index === selected ? null : c.index)}
                 className={`flex w-full items-center gap-2 rounded-md px-1.5 py-0.5 text-left transition-colors ${c.index === selected ? 'bg-raised/80' : 'hover:bg-raised/50'}`}>
