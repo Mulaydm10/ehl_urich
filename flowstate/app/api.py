@@ -221,6 +221,21 @@ class CopilotTickReq(BaseModel):
     route: dict | None = None
 
 
+class VizRerouteReq(BaseModel):
+    """The viz dashboard's view of a mid-ride re-plan: same inputs the phone
+    would hand reroute_from_here, plus every candidate the search planned."""
+    lat: float
+    lon: float
+    rider_key: str = "userA"
+    thrill: float = 0.5
+    mode: str = "flow"
+    change: str = "avoid_this_road"
+    destination: list[float] | None = None
+    hours: float | None = None
+    # cells of the plan being followed, for the shared-road figure
+    current_cells: list[str] = []
+
+
 class CopilotDismissReq(BaseModel):
     session: str = "default"
     kind: str
@@ -293,6 +308,25 @@ def copilot_dismiss(req: CopilotDismissReq) -> JSONResponse:
 @app.post("/api/copilot/reset")
 def copilot_reset(req: CopilotDismissReq) -> JSONResponse:
     return ok(COPILOT.reset(req.session))
+
+
+@app.post("/api/viz/reroute_candidates")
+def viz_reroute_candidates(req: VizRerouteReq) -> JSONResponse:
+    """Read-only: run the reroute search exactly as the assistant tool does,
+    but keep every candidate it planned (paths, numbers, why kept/dropped).
+    The winner is the same one the live tool would return."""
+    ride = {"lat": req.lat, "lon": req.lon, "rider_key": req.rider_key,
+            "thrill": req.thrill, "mode": req.mode,
+            "route": {"cells": req.current_cells,
+                      "destination": req.destination}}
+    args: dict[str, Any] = {"change": req.change, "candidates": True}
+    if req.hours is not None:
+        args["hours"] = req.hours
+    res = ASSISTANT.run_tool("reroute_from_here", args, {"ride": ride})
+    result = res.get("result") or {}
+    if isinstance(result, dict) and "error" in result:
+        return JSONResponse(_clean({"ok": False, **result}), status_code=400)
+    return ok(result)
 
 
 @app.post("/api/assistant/tool")
