@@ -9,6 +9,7 @@ import {
   askAssistant,
   getAssistantStatus,
   routeForScreen,
+  setPendingPlan,
 } from '../services/assistant'
 
 /**
@@ -30,6 +31,7 @@ export function VoiceAssistant() {
   const [thinking, setThinking] = useState(false)
   const [cloud, setCloud] = useState<AssistantStatus | null>(null)
   const [usedCloud, setUsedCloud] = useState(false)
+  const [cloudFailed, setCloudFailed] = useState(false)
   const [typed, setTyped] = useState('')
 
   useEffect(() => {
@@ -73,21 +75,27 @@ export function VoiceAssistant() {
       })
       setThinking(false)
       if (!answer) {
+        setCloudFailed(true)
+        setUsedCloud(false)
         runLocal(text)
         return
       }
+      setCloudFailed(false)
       setUsedCloud(true)
       setReply(answer.say)
       speak(answer.say)
+      let go: string | null = null
       for (const action of answer.actions) {
         if (action.type === 'select_bike') selectBike(action.bikeId)
-        if (action.type === 'navigate') {
-          const path = routeForScreen(action.screen)
-          if (path) {
-            setOpen(false)
-            navigate(path)
-          }
+        if (action.type === 'show_route') {
+          setPendingPlan(action.plan)
+          go = go ?? '/thrill'
         }
+        if (action.type === 'navigate') go = routeForScreen(action.screen) ?? go
+      }
+      if (go) {
+        setOpen(false)
+        navigate(go)
       }
     },
     [cloud, bike, bikes, online, engine, speak, navigate, selectBike, runLocal],
@@ -230,9 +238,11 @@ export function VoiceAssistant() {
         ) : null}
 
         <p className="mt-6 text-center font-mono text-[9px] uppercase tracking-[0.12em] text-ash">
-          {cloud?.enabled
-            ? `Cloud assistant \u00b7 ${cloud.model ?? 'openai'} \u00b7 ${usedCloud ? 'answered live' : 'ready'}`
-            : 'On-device answers \u00b7 cloud assistant not configured on the server'}
+          {!cloud?.enabled
+            ? 'On-device answers \u00b7 cloud assistant not configured on the server'
+            : cloudFailed
+              ? 'Cloud assistant unreachable \u00b7 answered on-device'
+              : `Cloud assistant \u00b7 ${cloud.model ?? 'openai'} \u00b7 ${usedCloud ? 'answered live' : 'ready'}`}
         </p>
       </section>
     </div>

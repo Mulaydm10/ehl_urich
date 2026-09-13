@@ -7,11 +7,13 @@
  * app should do. When the backend has no key, or is unreachable, the caller
  * falls back to the on-device resolver in `voiceIntents.ts`.
  */
+import type { FsRouteResult } from '../domain/types'
 import { http } from './http'
 
 export type AssistantAction =
   | { type: 'navigate'; screen: string }
   | { type: 'select_bike'; bikeId: string }
+  | { type: 'show_route'; plan: FsRouteResult }
 
 export interface AssistantStatus {
   enabled: boolean
@@ -43,6 +45,23 @@ const ROUTE_BY_SCREEN: Record<string, string> = {
 
 export const routeForScreen = (screen: string): string | null =>
   ROUTE_BY_SCREEN[screen.toLowerCase()] ?? null
+
+/**
+ * A plan the assistant made, waiting for the screen it navigated to. Held
+ * outside React because the producer (the assistant panel) and the consumer
+ * (the Thrill screen) never render together.
+ */
+let pendingPlan: FsRouteResult | null = null
+
+export const setPendingPlan = (plan: FsRouteResult) => {
+  pendingPlan = plan
+}
+
+export function takePendingPlan(): FsRouteResult | null {
+  const plan = pendingPlan
+  pendingPlan = null
+  return plan
+}
 
 export async function getAssistantStatus(): Promise<AssistantStatus | null> {
   try {

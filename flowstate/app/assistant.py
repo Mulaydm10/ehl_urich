@@ -573,6 +573,11 @@ class Assistant:
                     except Exception as exc:  # noqa: BLE001 - report, don't crash the turn
                         result = {"error": f"{type(exc).__name__}: {exc}"}
                 used.append(name)
+                if (name in ("plan_route", "plan_loop")
+                        and isinstance(result, dict) and result.get("ok")):
+                    # The model only gets a truncated summary; the app gets the
+                    # whole plan so it can draw the route it was just told about.
+                    actions.append({"type": "show_route", "plan": result})
                 if name == "open_screen" and isinstance(result, dict) and result.get("ok"):
                     actions.append({"type": "navigate", "screen": result["screen"]})
                 if name == "select_bike" and isinstance(result, dict) and result.get("ok"):
