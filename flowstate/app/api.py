@@ -31,11 +31,12 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import assistant as assistant_mod  # noqa: E402
+import bike_link  # noqa: E402
 import bmw_cloud  # noqa: E402
 
 # ---- pick the real engine if its data is here, else the mock ---------------
@@ -59,6 +60,7 @@ else:
         ENGINE_KIND = f"mock (service unavailable: {type(exc).__name__})"
 
 CLOUD = bmw_cloud.BmwCloud()
+LINK = bike_link.BikeLink(CLOUD)  # FLOWSTATE_BIKE_LINK=stand_in (default) | native
 ASSISTANT = assistant_mod.Assistant(ENGINE, CLOUD, ENGINE_KIND)
 
 app = FastAPI(title="FLOWSTATE + BMW backend", version="1.0")
@@ -142,6 +144,27 @@ class ExportReq(BaseModel):
 class HandoffReq(BaseModel):
     routeId: str
     bikeId: str
+
+
+class LinkScanReq(BaseModel):
+    active: bool = True
+
+
+class LinkDeviceReq(BaseModel):
+    deviceId: str
+
+
+class LinkSendReq(BaseModel):
+    routeId: str
+    bikeId: str
+    deviceId: str | None = None
+
+
+class LinkReportReq(BaseModel):
+    adapter: dict | None = None
+    devices: list[dict] | None = None
+    connection: dict | None = None
+    transfer: dict | None = None
 
 
 class AssistantReq(BaseModel):
@@ -300,6 +323,78 @@ def bmw_export(req: ExportReq) -> JSONResponse:
 @app.post("/api/bmw/handoff")
 def bmw_handoff(req: HandoffReq) -> JSONResponse:
     return ok(CLOUD.handoff(req.routeId, req.bikeId))
+
+
+# --------------------------------------------------------------------------
+# BMW local bike link (Bluetooth / TFT) — bike_link.py
+# --------------------------------------------------------------------------
+
+@app.get("/api/bmw/link/status")
+def bmw_link_status() -> JSONResponse:
+    return ok(LINK.status())
+
+
+@app.get("/api/bmw/link/adapter")
+def bmw_link_adapter() -> JSONResponse:
+    return ok(LINK.transport.adapter())
+
+
+@app.get("/api/bmw/link/devices")
+def bmw_link_devices() -> JSONResponse:
+    return ok(LINK.transport.devices())
+
+
+@app.post("/api/bmw/link/scan")
+def bmw_link_scan(req: LinkScanReq) -> JSONResponse:
+    return ok(LINK.transport.scan(req.active))
+
+
+@app.post("/api/bmw/link/pair")
+def bmw_link_pair(req: LinkDeviceReq) -> JSONResponse:
+    return ok(LINK.transport.pair(req.deviceId))
+
+
+@app.post("/api/bmw/link/unpair")
+def bmw_link_unpair(req: LinkDeviceReq) -> JSONResponse:
+    return ok(LINK.transport.unpair(req.deviceId))
+
+
+@app.post("/api/bmw/link/connect")
+def bmw_link_connect(req: LinkDeviceReq) -> JSONResponse:
+    return ok(LINK.transport.connect(req.deviceId))
+
+
+@app.post("/api/bmw/link/disconnect")
+def bmw_link_disconnect() -> JSONResponse:
+    return ok(LINK.transport.disconnect())
+
+
+@app.get("/api/bmw/link/capabilities/{bike_id}")
+def bmw_link_capabilities(bike_id: str) -> JSONResponse:
+    return ok(LINK.capabilities(bike_id))
+
+
+@app.post("/api/bmw/link/send")
+def bmw_link_send(req: LinkSendReq) -> JSONResponse:
+    return ok(LINK.send(req.routeId, req.bikeId, req.deviceId))
+
+
+@app.get("/api/bmw/link/transfers/{transfer_id}")
+def bmw_link_transfer(transfer_id: str) -> JSONResponse:
+    return ok(LINK.transport.transfer(transfer_id))
+
+
+@app.get("/api/bmw/link/gpx/{route_id}")
+def bmw_link_gpx(route_id: str) -> Response:
+    gpx = LINK.gpx(route_id)
+    if gpx is None:
+        return JSONResponse({"ok": False, "note": f"No route {route_id}."}, status_code=404)
+    return Response(gpx, media_type="application/gpx+xml")
+
+
+@app.post("/api/bmw/link/native/report")
+def bmw_link_native_report(req: LinkReportReq) -> JSONResponse:
+    return ok(LINK.report(req.model_dump(exclude_none=True)))
 
 
 # --------------------------------------------------------------------------
