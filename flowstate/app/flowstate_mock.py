@@ -92,8 +92,13 @@ def _seed(*vals) -> int:
     return s or 1
 
 
-def _path(a, b, z_star: float, seed: int, points: int = 90) -> list[list[float]]:
-    """Return [lon, lat] pairs, bendier at higher z."""
+def _path(a, b, z_star: float, seed: int, points: int = 90,
+          target_km: float | None = None) -> list[list[float]]:
+    """Return [lon, lat] pairs, bendier at higher z.
+
+    With target_km the wiggle is scaled so the drawn line is that long, so
+    what the map measures and what the summary claims are the same number.
+    """
     s = {"v": seed}
 
     def r():
@@ -105,16 +110,40 @@ def _path(a, b, z_star: float, seed: int, points: int = 90) -> list[list[float]]
     px, py = -d_lat / length, d_lon / length
     phase = r() * math.pi * 2
     wig = 0.012 + z_star * 0.03
-    out = []
-    for i in range(points):
-        t = i / (points - 1)
-        env = math.sin(t * math.pi)
-        bend = (math.sin(t * math.pi * 2.1 + phase) * wig * 6
-                + math.sin(t * math.pi * 6.3 + phase * 2) * wig * 2.4) * env
-        la = a[0] + d_lat * t + py * bend * 0.7
-        lo = a[1] + d_lon * t + px * bend
-        out.append([round(lo, 5), round(la, 5)])
-    return out
+
+    def draw(scale: float) -> list[list[float]]:
+        out = []
+        for i in range(points):
+            t = i / (points - 1)
+            env = math.sin(t * math.pi)
+            bend = (math.sin(t * math.pi * 2.1 + phase) * wig * 6
+                    + math.sin(t * math.pi * 6.3 + phase * 2) * wig * 2.4) * env * scale
+            la = a[0] + d_lat * t + py * bend * 0.7
+            lo = a[1] + d_lon * t + px * bend
+            out.append([round(lo, 5), round(la, 5)])
+        return out
+
+    if target_km is None:
+        return draw(1.0)
+
+    # length grows with the wiggle, so bisect on it; a straight line is the
+    # shortest we can draw, and anything under that is left straight.
+    lo_s, hi_s = 0.0, 1.0
+    while _path_km(draw(hi_s)) < target_km and hi_s < 64.0:
+        hi_s *= 2
+    for _ in range(28):
+        mid = (lo_s + hi_s) / 2
+        if _path_km(draw(mid)) < target_km:
+            lo_s = mid
+        else:
+            hi_s = mid
+    return draw((lo_s + hi_s) / 2)
+
+
+def _path_km(path) -> float:
+    """Length of a drawn [lon, lat] line, the way the phone measures it."""
+    return sum(_haversine_km([path[i][1], path[i][0]], [path[i + 1][1], path[i + 1][0]])
+               for i in range(len(path) - 1))
 
 
 def init(*_a, **_k) -> dict:
@@ -240,7 +269,9 @@ def route(a, b, rider_key: str = "userA", z_star: float = 0.5,
                      (round(b[0], 2), round(b[1], 2))))
     if ex and z_star in ex:
         summary.update({k: v for k, v in ex[z_star].items() if k != "refused"})
-    path = _path(a, b, z_star, _seed(a[0], a[1], b[0], b[1], z_star))
+    path = _path(a, b, z_star, _seed(a[0], a[1], b[0], b[1], z_star),
+                 target_km=summary["km"])
+    summary["km"] = round(_path_km(path), 1)
     cells = [f"c{i}" for i in range(len(path))]
     refusals = _refusals_for(a, b, rider_key, z_star, summary)
     seg = []
@@ -263,9 +294,11 @@ def loop(start, hours: float = 2.0, rider_key: str = "userA", z_star: float = 0.
     turn = [start[0] + 0.12 + z_star * 0.05, start[1] + 0.16 + z_star * 0.05]
     turn = [min(turn[0], LAT_MAX), min(turn[1], LON_MAX)]
     summary = _summary_for(start, turn, rider_key, z_star, is_loop=True, hours=hours)
-    out = _path(start, turn, z_star, _seed(start[0], start[1], hours, z_star))
+    out = _path(start, turn, z_star, _seed(start[0], start[1], hours, z_star),
+                target_km=summary["km"] / 2)
     back = [[p[0] + 0.004, p[1] - 0.004] for p in reversed(out)]
     path = out + back
+    summary["km"] = round(_path_km(path), 1)
     cells = [f"c{i}" for i in range(len(path))]
     refusals = _refusals_for(start, turn, rider_key, z_star, summary)
     seg = []
