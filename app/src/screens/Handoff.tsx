@@ -1,27 +1,31 @@
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
-import { ArrowRight, ChevronDown, CornerUpRight, Monitor, Send, Smartphone } from 'lucide-react'
+import { ArrowRight, Bluetooth, ChevronDown, CornerUpRight, Monitor, Send, Smartphone } from 'lucide-react'
 import { useAppState } from '../state/AppState'
 import { RouteMap } from '../components/RouteMap'
 import { BikeImage } from '../components/BikeImage'
 import { StatusLed } from '../components/Cluster'
 import { BackHeader, EmptyState, Feedback, PrimaryButton, Unavailable } from '../components/primitives'
-import type { TransferResult } from '../domain/types'
+import { BikeLinkPanel, useBikeLink } from '../components/BikeLinkPanel'
+import type { LinkTransfer } from '../services/bikeLink'
 
 export function HandoffScreen() {
-  const { routes, activeRouteId, bike, api } = useAppState()
-  const [result, setResult] = useState<TransferResult | null>(null)
+  const { routes, activeRouteId, bike } = useAppState()
+  const { link, status: linkStatus } = useBikeLink()
+  const [result, setResult] = useState<LinkTransfer | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const route = routes.find((r) => r.id === activeRouteId) ?? routes[0]
   if (!route || !bike) return <div><BackHeader to="/more" title="Send to bike" /><div className="p-5"><EmptyState title="No route ready" action={<Link to="/discover" className="button button-secondary">Browse routes</Link>}>Choose a route before sending it to your motorcycle.</EmptyState></div></div>
   const phoneOnly = bike.connection === 'phone_only'
+  const linkConnected = linkStatus?.connection.state === 'connected' && !linkStatus.standIn
+  const linkLabel = !linkStatus ? 'Checking link' : linkStatus.standIn ? 'Stand-in link' : linkConnected ? 'Connected' : linkStatus.transport === 'offline' ? 'No link' : 'Not connected'
 
   return (
     <div className="pb-8">
       <BackHeader to="/plan" title="Send to bike" detail={bike.model} />
       <div className="vehicle-hero !h-[190px]"><BikeImage bike={bike} priority /></div>
-      <div className="mb-7 mt-5 flex items-center justify-center gap-4 text-ash"><Smartphone size={17} strokeWidth={1.5} /><ArrowRight size={13} /><StatusLed on={bike.connection === 'connected'}>{phoneOnly ? 'Phone only' : bike.connection === 'connected' ? 'Connected' : 'Last seen'}</StatusLed><Monitor size={17} strokeWidth={1.5} /></div>
+      <div className="mb-7 mt-5 flex items-center justify-center gap-4 text-ash"><Smartphone size={17} strokeWidth={1.5} /><ArrowRight size={13} /><StatusLed on={linkConnected} tone={linkStatus?.standIn ? 'warn' : 'ok'}>{phoneOnly ? 'Phone only' : linkLabel}</StatusLed><Monitor size={17} strokeWidth={1.5} /></div>
       <section className="panel mx-6 p-5">
         <p className="label">{phoneOnly ? 'Ready on your phone' : 'Ready to transfer'}</p>
         <h2 className="mt-2 text-title">{route.name}</h2>
@@ -33,15 +37,22 @@ export function HandoffScreen() {
           setBusy(true)
           setError(null)
           setResult(null)
-          try { setResult(await api.sendRouteToBike(route.id, bike)) }
+          try { setResult(await link.sendRoute(route.id, bike.id)) }
           catch { setError('Transfer interrupted. Your route is saved. Try again.') }
           finally { setBusy(false) }
         }}>
           {phoneOnly ? <Smartphone size={17} /> : <Send size={17} />}{busy ? 'Transferring…' : phoneOnly ? 'Use phone navigation' : 'Send route to bike'}
         </PrimaryButton>
-        {result ? <Feedback tone={result.ok ? 'success' : 'info'}><div className="font-medium">{result.target === 'phone' ? 'Phone navigation' : result.target}</div><p className="caption mt-1">{result.message}</p></Feedback> : null}
+        {result ? <Feedback tone={result.ok ? 'success' : result.status === 'failed' ? 'error' : 'info'}>
+          <div className="font-medium">{result.standIn ? 'Stand-in — nothing sent to the bike' : result.status === 'pending_phone' ? 'Waiting for the phone to send' : result.ok ? `Sent to ${result.target}` : 'Not sent'}</div>
+          <p className="caption mt-1">{result.message}</p>
+        </Feedback> : null}
         {error ? <Feedback tone="error">{error}</Feedback> : null}
       </div>
+      <details className="settings-disclosure mt-5" open={!linkConnected}>
+        <summary><span className="flex items-center gap-3"><Bluetooth size={19} strokeWidth={1.5} /><span className="text-[14px] font-medium">Bike link</span></span><ChevronDown size={16} /></summary>
+        <div><BikeLinkPanel /></div>
+      </details>
       <details className="settings-disclosure mt-5">
         <summary><span className="flex items-center gap-3"><Monitor size={19} strokeWidth={1.5} /><span className="text-[14px] font-medium">{phoneOnly ? 'Phone navigation' : 'TFT preview'}</span></span><ChevronDown size={16} /></summary>
         <div>
