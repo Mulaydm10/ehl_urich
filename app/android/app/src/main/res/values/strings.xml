@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BMW Motorrad</string>
+    <string name="title_activity_main">BMW Motorrad</string>
+    <string name="package_name">com.bmwmotorrad.ridefit</string>
+    <string name="custom_url_scheme">com.bmwmotorrad.ridefit</string>
+</resources>

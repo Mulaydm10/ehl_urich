@@ -1,0 +1,319 @@
+"""
+api.py — the thin HTTP wrapper docs 25 §9 / 26 §8 ask for.
+
+One FastAPI process that exposes:
+  * the FLOWSTATE fun-fit route engine (service.py), and
+  * the BMW-side services the engine never had (bmw_cloud.py: garage, rides,
+    group, maps, vehicle status, GPX handoff, live ride recording).
+
+It is the single place the mobile app talks to. On the Mac mini it loads the
+real service off data/cache/demo.pkl; anywhere without the bake (CI, a laptop,
+the phone-app dev box) it falls back to flowstate_mock so the whole app can be
+run and tested live. The BMW services are an in-process mock store either way,
+until the real BMW backend is handed over.
+
+Run:
+    uvicorn api:app --host 127.0.0.1 --port 8090        # local / this box
+    FS_ADDR=100.80.210.100 ./run_api.sh                 # Mac, tailnet only
+
+NDA rules honoured here (doc 25 §9):
+  * NaN floats are converted to null before they leave the process.
+  * bind to the tailnet address on the Mac, never 0.0.0.0 / funnel (run_api.sh).
+"""
+
+from __future__ import annotations
+
+import math
+import os
+import sys
+from pathlib import Path
+from typing import Any
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import bmw_cloud  # noqa: E402
+
+# ---- pick the real engine if its data is here, else the mock ---------------
+ENGINE: Any
+ENGINE_KIND: str
+if os.environ.get("FLOWSTATE_MOCK") == "1":
+    import flowstate_mock as ENGINE  # type: ignore
+    ENGINE_KIND = "mock (forced)"
+else:
+    try:
+        import service as _svc  # type: ignore
+        _svc.init()
+        ENGINE = _svc
+        ENGINE_KIND = "service"
+    except Exception as exc:  # noqa: BLE001 - any load failure => usable mock
+        import flowstate_mock as ENGINE  # type: ignore
+        ENGINE_KIND = f"mock (service unavailable: {type(exc).__name__})"
+
+CLOUD = bmw_cloud.BmwCloud()
+
+app = FastAPI(title="FLOWSTATE + BMW backend", version="1.0")
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+)
+
+
+# --------------------------------------------------------------------------
+# JSON hygiene — NaN/Inf -> null (doc 25 §9)
+# --------------------------------------------------------------------------
+
+def _clean(o: Any) -> Any:
+    if isinstance(o, float):
+        return o if math.isfinite(o) else None
+    if isinstance(o, dict):
+        return {k: _clean(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [_clean(v) for v in o]
+    return o
+
+
+def ok(o: Any) -> JSONResponse:
+    return JSONResponse(_clean(o))
+
+
+# --------------------------------------------------------------------------
+# request bodies
+# --------------------------------------------------------------------------
+
+class RouteReq(BaseModel):
+    a: list[float]
+    b: list[float]
+    rider_key: str = "userA"
+    z_star: float = 0.5
+    mode: str = "flow"
+
+
+class LoopReq(BaseModel):
+    start: list[float]
+    hours: float = 2.0
+    rider_key: str = "userA"
+    z_star: float = 0.5
+    mode: str = "flow"
+
+
+class CompareReq(BaseModel):
+    a: list[float]
+    b: list[float]
+    rider_key: str = "userA"
+    lo: float = 0.15
+    hi: float = 0.90
+    mode: str = "flow"
+
+
+class ParetoReq(BaseModel):
+    a: list[float]
+    b: list[float]
+    rider_key: str = "userA"
+
+
+class PlanReq(BaseModel):
+    origin: str
+    destination: str
+    via: list[str] = []
+    mode: str = "curvy"
+    avoid: list[str] = []
+    roundTrip: bool = False
+    bikeId: str = "gs"
+
+
+class ImportReq(BaseModel):
+    fileName: str
+
+
+class ExportReq(BaseModel):
+    routeId: str
+    target: str = "connectedride"
+
+
+class HandoffReq(BaseModel):
+    routeId: str
+    bikeId: str
+
+
+class StartRideReq(BaseModel):
+    bikeId: str
+    title: str = ""
+
+
+class SampleReq(BaseModel):
+    rideId: str
+    sample: dict
+
+
+# --------------------------------------------------------------------------
+# meta
+# --------------------------------------------------------------------------
+
+@app.get("/health")
+def health() -> JSONResponse:
+    return ok({"ok": True, "engine": ENGINE_KIND})
+
+
+@app.get("/api/status")
+def status() -> JSONResponse:
+    return ok({**ENGINE.status(), "engine": ENGINE_KIND})
+
+
+# --------------------------------------------------------------------------
+# FLOWSTATE fun-fit engine
+# --------------------------------------------------------------------------
+
+@app.get("/api/riders")
+def riders() -> JSONResponse:
+    return ok(ENGINE.riders())
+
+
+@app.get("/api/presets")
+def presets() -> JSONResponse:
+    return ok(ENGINE.presets())
+
+
+@app.get("/api/modes")
+def modes() -> JSONResponse:
+    return ok(ENGINE.modes())
+
+
+@app.post("/api/route")
+def route(req: RouteReq) -> JSONResponse:
+    return ok(ENGINE.route(req.a, req.b, req.rider_key, req.z_star, mode=req.mode))
+
+
+@app.post("/api/loop")
+def loop(req: LoopReq) -> JSONResponse:
+    return ok(ENGINE.loop(req.start, req.hours, req.rider_key, req.z_star, mode=req.mode))
+
+
+@app.post("/api/compare")
+def compare(req: CompareReq) -> JSONResponse:
+    return ok(ENGINE.compare(req.a, req.b, req.rider_key, req.lo, req.hi, mode=req.mode))
+
+
+@app.post("/api/pareto")
+def pareto(req: ParetoReq) -> JSONResponse:
+    return ok(ENGINE.pareto(req.a, req.b, req.rider_key))
+
+
+@app.get("/api/basemap")
+def basemap() -> JSONResponse:
+    return ok(ENGINE.basemap())
+
+
+@app.get("/api/cells_layer")
+def cells_layer(rider_key: str = "userA", z_star: float = 0.5, min_flow: float = 0.0,
+                mode: str = "flow") -> JSONResponse:
+    return ok(ENGINE.cells_layer(rider_key, z_star, min_flow, mode))
+
+
+@app.get("/api/rider_joy")
+def rider_joy(rider_key: str = "userA") -> JSONResponse:
+    return ok(ENGINE.rider_joy(rider_key))
+
+
+@app.get("/api/gem_pool")
+def gem_pool(rider_key: str = "userA", z_star: float = 0.5, n: int = 20,
+             mode: str = "flow") -> JSONResponse:
+    return ok(ENGINE.gem_pool(rider_key, z_star, n, mode))
+
+
+# --------------------------------------------------------------------------
+# BMW garage / account / vehicle status
+# --------------------------------------------------------------------------
+
+@app.get("/api/bmw/profile")
+def bmw_profile() -> JSONResponse:
+    return ok(CLOUD.get_profile())
+
+
+@app.get("/api/bmw/bikes")
+def bmw_bikes() -> JSONResponse:
+    return ok(CLOUD.get_bikes())
+
+
+@app.get("/api/bmw/bikes/{bike_id}/status")
+def bmw_vehicle_status(bike_id: str) -> JSONResponse:
+    return ok(CLOUD.vehicle_status(bike_id))
+
+
+@app.get("/api/bmw/stats")
+def bmw_stats() -> JSONResponse:
+    return ok(CLOUD.get_stats())
+
+
+# --------------------------------------------------------------------------
+# BMW routes / cloud sync / handoff
+# --------------------------------------------------------------------------
+
+@app.get("/api/bmw/routes")
+def bmw_routes() -> JSONResponse:
+    return ok(CLOUD.get_routes())
+
+
+@app.post("/api/bmw/plan")
+def bmw_plan(req: PlanReq) -> JSONResponse:
+    return ok(CLOUD.plan_route(req.model_dump()))
+
+
+@app.post("/api/bmw/import")
+def bmw_import(req: ImportReq) -> JSONResponse:
+    return ok(CLOUD.import_route(req.fileName))
+
+
+@app.post("/api/bmw/export")
+def bmw_export(req: ExportReq) -> JSONResponse:
+    return ok(CLOUD.export_route(req.routeId, req.target))
+
+
+@app.post("/api/bmw/handoff")
+def bmw_handoff(req: HandoffReq) -> JSONResponse:
+    return ok(CLOUD.handoff(req.routeId, req.bikeId))
+
+
+# --------------------------------------------------------------------------
+# BMW rides + live recording
+# --------------------------------------------------------------------------
+
+@app.get("/api/bmw/rides")
+def bmw_rides() -> JSONResponse:
+    return ok(CLOUD.get_rides())
+
+
+@app.post("/api/bmw/rides/start")
+def bmw_ride_start(req: StartRideReq) -> JSONResponse:
+    return ok(CLOUD.start_recording(req.bikeId, req.title))
+
+
+@app.post("/api/bmw/rides/sample")
+def bmw_ride_sample(req: SampleReq) -> JSONResponse:
+    return ok(CLOUD.push_sample(req.rideId, req.sample))
+
+
+@app.post("/api/bmw/rides/{ride_id}/stop")
+def bmw_ride_stop(ride_id: str) -> JSONResponse:
+    return ok(CLOUD.stop_recording(ride_id))
+
+
+# --------------------------------------------------------------------------
+# BMW group ride + offline maps
+# --------------------------------------------------------------------------
+
+@app.get("/api/bmw/group")
+def bmw_group() -> JSONResponse:
+    return ok(CLOUD.get_group())
+
+
+@app.get("/api/bmw/maps")
+def bmw_maps() -> JSONResponse:
+    return ok(CLOUD.get_regions())
+
+
+@app.post("/api/bmw/maps/{region_id}/download")
+def bmw_map_download(region_id: str) -> JSONResponse:
+    return ok(CLOUD.start_download(region_id))

@@ -1,0 +1,4 @@
+# HTTP wrapper only. The engine's own deps (pandas, numpy, scipy, ...) come from
+# the project venv described in CONTEXT.md; these are additive.
+fastapi>=0.110
+uvicorn[standard]>=0.29
