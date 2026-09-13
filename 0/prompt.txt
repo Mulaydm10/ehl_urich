@@ -1,0 +1,143 @@
+Continue the BMW Motorrad FLOWSTATE build. Read in order: CONTEXT.md,
+flowstate/docs/19_FEATURE_PHASES.md (operative plan), docs 23, 22, 21, 20 (the four phase records),
+docs/18_PITCH_AUDIT.md, then the two documents this phase rewrites: flowstate/docs/06_PITCH.md and
+flowstate/docs/10_LIVE_DEMO.md. Current as of 54baa87; docs override memory.
+
+Work on the Mac: `ssh macmini`, repo ~/ehl_urich. zsh: no word-splitting of $vars. Venv COMPULSORY:
+/Users/mulaydm10/ehl_urich/.venv/bin/python. Write scripts locally in the scratchpad and scp them; never
+inline heredocs over ssh. AppTest paths absolute. Validate EVERYTHING by running it on real data; every
+number in the pitch and demo must be read off the running service or a test JSON, never off a doc.
+
+DO PHASE 5 of doc 19 - integration. Rewrite 06_PITCH.md and 10_LIVE_DEMO.md ONLY for features that
+passed, and say the failures where a judge would otherwise assume them:
+- Passed, may be pitched: two real riders (user C CALIBRATED, gate agreement 1.072 vs 1.063 - the gate
+  construction replicates on a second human); safety readout lines (hazard counts "N of the M trips",
+  tightening bends) on beat 2 if they appear on the preset; scenic/mountain modes as "leans towards
+  higher ground where there is a choice" (+1-2 m, never "takes you to the views"); Pareto as "a few
+  minutes buys a little lean" with its real numbers; morton decoded exactly; road columns tested by
+  split-half across disjoint rides.
+- Must be stated as measured-and-failed or weak where relevant: Joy WEAK and grip-budget REJECTED
+  (slide 7), bike archetypes none, mood detection fails, arc loop fails, commute blocked, urban fails.
+- Candidate beat (doc 22): user C moves Lenggries->Bad Tolz Send it to 17% shared road (C's gate
+  refuses a road on A's line). Re-measure live; use it only if the service reproduces it, and decide
+  whether it strengthens beat 1/3 without breaking the rehearsed flow.
+- Re-read every existing beat's numbers off the service; fix any that drifted.
+Also: AppTest sweep (all 5 tabs, rider switch incl. userC, presets), final regression gate, rebake,
+docs/18-style audit table of every claim in the new pitch -> source JSON/doc, CONTEXT final status, doc
+19 Phase 5 DONE, verdict rows from F141 (keep the CSV's existing CR bytes), merge as usual.
+
+Regression gate: Lenggries->Bad Tolz headline "Same two points. 1.13x the distance, 83% of it on
+different roads, +2.7 deg more lean asked of you."; Kochel->Tegernsee overlap 0.848; Kochel 2 h loop Send
+it 133.4 km / 118.7 min / 0.936; bike_4e1a9d64 switch 0.10; all 21 baked answers identical.
+
+Standing: Streamlit UI FROZEN (strings only). Leaflet REJECTED. Geo stack via
+`uv pip install --only-binary=:all:` only. NDA data never leaves the Mac; analysis/out/*.parquet
+gitignored; never commit trip ids or ride coordinates; test JSONs aggregates only. Never use trip ends as
+places. run_demo.sh binds tailnet only - never 0.0.0.0, never tailscale funnel. Never score speed. Never
+quote: 1.5-1.8x detour, ablation weights, leave-one-rider-out, left/right asymmetry, the "three trip ids"
+card, the grip-budget ABS line, or "the crowd brakes here". Then tell me and give the final summary.
+
+---
+
+hoow much s remaining ?
+
+---
+
+<task-notification>
+<task-id>bzrnrqm0b</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/tmp/claude-1000/-home-mulaydm10-ehl-urich/c17c88ee-b5be-4d5c-b7a3-c4a2d053e2f3/tasks/bzrnrqm0b.output</output-file>
+<status>completed</status>
+<summary>Background command "Run rebuild, rebake and measure on Mac" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+ok do the apptest run and also check alll the live runs and also write a docs o give to front end about
+
+---
+
+push everything and merge it and keep it , as the backed part is dnoe , then just running it
+
+---
+
+<task-notification>
+<task-id>bcx1s7ie0</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/tmp/claude-1000/-home-mulaydm10-ehl-urich/c17c88ee-b5be-4d5c-b7a3-c4a2d053e2f3/tasks/bcx1s7ie0.output</output-file>
+<status>completed</status>
+<summary>Background command "Run AppTest sweep on Mac" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b8z8sdx37</task-id>
+<tool-use-id>toolu_017c6fCwM2A37nXuHRyufyUe</tool-use-id>
+<output-file>/tmp/claude-1000/-home-mulaydm10-ehl-urich/c17c88ee-b5be-4d5c-b7a3-c4a2d053e2f3/tasks/b8z8sdx37.output</output-file>
+<status>completed</status>
+<summary>Background command "Ship string fixes, run final gates on Mac" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+dont write pitch and demo but work on other things
+
+---
+
+also all data points validated against real data till noow right
+
+---
+
+re-validate the not re-checked numbers on real data and draft a prompt for frontend ai to understand tthis backend project , from scrathc
+
+---
+
+<task-notification>
+<task-id>bolnck829</task-id>
+<tool-use-id>toolu_0196D2gVg5CaD6DyAGgxD7s9</tool-use-id>
+<output-file>/tmp/claude-1000/-home-mulaydm10-ehl-urich/c17c88ee-b5be-4d5c-b7a3-c4a2d053e2f3/tasks/bolnck829.output</output-file>
+<status>completed</status>
+<summary>Background command "Run re-validation of unchecked numbers on Mac" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+send the prompt md file to omen
+
+---
+
+and give me the updaet github repo
+
+---
+
+merge the latest things quickly
+
+---
+
+everythiing up to date right ?
+
+---
+
+ok after frontend is done , they wll give u a prompt
+
+---
+
+'m building a BMW-only Android ride app (React + TypeScript + Vite + Tailwind, packaged with Capacitor into a debug APK). It merges three sources of features into one product:
+
+FLOWSTATE — a rider-specific "fun-fit" routing engine for Bavaria. It scores roads by lean-angle demand vs. rider skill (z = (demand − skill) / σ), hard-removes roads past a skill + 2σ safety gate, and offers validated modes flow, scenic, mountain (not adventure/urban, which failed validation). Presets: Cruise 0.15, Flow 0.50, Send it 0.90. Coverage lat 47.38–48.03, lon 10.72–11.96.
+BMW Motorrad ConnectedRide features we reverse-engineered from the real app: garage/multi-bike, vehicle status, service/recalls, rides + telemetry (lean angle), cloud sync (delta lastSync/nextToken envelope), GPX import/export, route handoff to the bike's TFT, group ride, offline maps.
+Extras that neither the current BMW app nor Kurviger/calimoto do well (honest phone-only states, graceful offline, etc.).
+Architecture: React screens → AppState provider → typed BmwApi interface with two implementations: httpApi (calls a FastAPI backend at /api/* and /api/bmw/*) and mockApi (bundled offline fallback). At startup the app probes /health; if unreachable it falls back to bundled data and shows an honest "engine not reachable" state rather than inventing telemetry. The backend URL is user-configurable in-app (More → Backend) so the APK can point at a Mac-hosted server over Tailscale.
+
+Current status: frontend + FastAPI backend run live end-to-end; lint + prod build pass; debug APK builds, installs, and launches on an Android 14 emulator. The real FLOWSTATE data bake is NDA/Mac-only, so the server currently runs a deterministic mock; the BMW-cloud data is a local stand-in store. Physical Bluetooth/TFT pairing is NOT yet validated (emulator has no BT radio; needs a real phone next to the bike).
+
+Question: Given a morning live demo with a physical BMW bike, what is the minimal, highest-impact set of things I should finish or verify next — across the routing engine wiring, the BMW-cloud integration, the Bluetooth/TFT link, and the APK/deploy path — and what would you cut as out-of-scope for the demo? = dont cut anything acording to its prompt but frintend is built , can u check what are mac side requirement for real inetgeration for now
+
+---
+
+repo push will be coming so check for it and then merge and then work on mac
+
+---
+
+for some branch
