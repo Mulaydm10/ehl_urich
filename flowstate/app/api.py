@@ -344,8 +344,8 @@ def route(req: RouteReq) -> JSONResponse:
 
 @app.post("/api/route/via")
 def route_via(req: ViaReq) -> JSONResponse:
-    return ok(via_mod.plan_via(ENGINE.route, req.points, req.rider_key,
-                               req.z_star, mode=req.mode))
+    return _engine(lambda: via_mod.plan_via(ENGINE.route, req.points, req.rider_key,
+                                            req.z_star, mode=req.mode))
 
 
 @app.post("/api/loop")
