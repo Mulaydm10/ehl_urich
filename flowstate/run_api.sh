@@ -11,6 +11,10 @@ PORT="${FS_PORT:-8090}"
 # This script is the Mac/demo launcher: refuse to start rather than fall back to
 # the mock engine. FLOWSTATE_MOCK=1 still forces the mock explicitly.
 export FLOWSTATE_REQUIRE_REAL="${FLOWSTATE_REQUIRE_REAL:-1}"
+# The demo phone runs the native Bluetooth plugin, so the Mac mirrors what the
+# phone's radio reports instead of simulating a link. FLOWSTATE_BIKE_LINK=stand_in
+# brings the simulated transport back for browser/emulator testing.
+export FLOWSTATE_BIKE_LINK="${FLOWSTATE_BIKE_LINK:-native}"
 
 # NOTE FOR CLAUDE (Mac): the voice assistant's brain is server-side. Export
 # OPENAI_API_KEY (or OPENAI_API_KEY_FILE pointing at a file holding it) before
