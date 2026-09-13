@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+html, body, #root { height: 100%; margin: 0; }
+body { @apply bg-void text-bone font-sans text-[13px]; }
+
+.leaflet-container { background: #191a1c; font: inherit; }
+.leaflet-control-attribution { background: rgba(25, 26, 28, 0.75) !important; color: #999BA1 !important; font-size: 10px; }
+.leaflet-control-attribution a { color: #6DB6E8 !important; }
+.leaflet-bar a { background: #2b2d30 !important; color: #F1F2F3 !important; border-color: #191a1c !important; }
+.leaflet-tooltip { background: #2b2d30; color: #F1F2F3; border: 1px solid #3a3d41; box-shadow: none; }
+.leaflet-tooltip-top:before { border-top-color: #3a3d41; }
+
+/* Polyline draw-on: stroke-dasharray/offset set inline per path length */
+@keyframes drawon { to { stroke-dashoffset: 0; } }
+.draw-on { animation: drawon 900ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+.cand-line { transition: stroke-opacity 260ms ease, stroke-width 260ms ease, stroke 260ms ease; }
+
+.rider-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #F1F2F3; border: 3px solid #1C69D4;
+  box-shadow: 0 0 0 4px rgba(28, 105, 212, 0.25), 0 0 14px rgba(28, 105, 212, 0.6);
+}
+.refusal-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #E7222E; border: 2px solid #F1F2F3;
+  box-shadow: 0 0 10px rgba(231, 34, 46, 0.7);
+}
+
+input[type="range"] { accent-color: #1C69D4; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #3a3d41; border-radius: 4px; }

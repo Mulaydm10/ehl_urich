@@ -516,6 +516,54 @@ def _reroute_variants(change: str, thrill: float, mode: str) -> list[tuple[float
     return [(thrill, mode)]
 
 
+def _candidates(plans: list[dict[str, Any]], won: dict[str, Any] | None,
+                change: str) -> list[dict[str, Any]]:
+    """Every variant that was planned, with the engine's plan and the reason
+    it was kept or dropped. `won` is the winning entry of the search, or None
+    when nothing planned. Purely a readout of what t_reroute_from_here did."""
+    out: list[dict[str, Any]] = []
+    win_idx = won.get("index") if won else None
+    win_share = won.get("shares_current_road") if won else None
+    for p in plans:
+        plan = p["plan"]
+        summary = plan.get("summary") if isinstance(plan.get("summary"), dict) else {}
+        share = p.get("shares_current_road")
+        if not p["ok"]:
+            verdict, why = "failed", f"engine returned no route: {p.get('note') or 'no note'}"
+        elif p["index"] == win_idx:
+            if change == "avoid_this_road":
+                why = ("lowest share of the current road among the variants"
+                       if share is not None else
+                       "no current plan loaded, so overlap is unknown; first planned variant kept")
+            else:
+                why = "first variant in the order that planned; the one the change asked for"
+            verdict = "accepted"
+        elif not p["in_search"]:
+            verdict = "not_searched"
+            why = ("the live tool stops at the first successful variant; planned here only "
+                   "because the dashboard asked for every variant")
+        elif change == "avoid_this_road" and share is not None and win_share is not None:
+            verdict = "rejected"
+            why = (f"shares {share:.0%} of the current road, the winner shares {win_share:.0%}"
+                   if share > win_share else
+                   f"same {share:.0%} share as the winner; the earlier variant in the order is kept")
+        else:
+            verdict, why = "rejected", "a later variant ranked better in the search"
+        out.append({
+            "index": p["index"], "thrill": p["thrill"], "mode": p["mode"],
+            "ok": p["ok"], "in_search": p["in_search"], "verdict": verdict, "why": why,
+            "shares_current_road": share,
+            "km": summary.get("km"), "minutes": summary.get("minutes"),
+            "fun_score": summary.get("fun_score"),
+            "mean_demand": summary.get("mean_demand"), "max_demand": summary.get("max_demand"),
+            "path": plan.get("path") or [], "cells": plan.get("cells") or [],
+            "segments": plan.get("segments") or [],
+            "refusals": plan.get("refusals") or [], "summary": summary,
+            "explain": plan.get("explain") or [], "note": plan.get("note"),
+        })
+    return out
+
+
 def _route_for_model(result: dict[str, Any]) -> dict[str, Any]:
     """A route as the model needs to hear it, not as the map needs to draw it.
 
@@ -683,19 +731,32 @@ class Assistant:
 
         change = str(a.get("change") or "same")
         variants = _reroute_variants(change, thrill, mode)
+        # The dashboard asks to see every variant, including the ones the
+        # live tool would never have planned. Which one wins is unchanged.
+        keep_all = bool(a.get("candidates"))
 
         tried: list[dict[str, Any]] = []
+        plans: list[dict[str, Any]] = []
         best: tuple[float, dict[str, Any], dict[str, float | str]] | None = None
-        for z, m in variants:
+        searching = True
+        for i, (z, m) in enumerate(variants):
+            if not searching and not keep_all:
+                break
             plan = (self.engine.route(here, dest, rider_key, z, mode=m) if dest
                     else self.engine.loop(here, float(a.get("hours") or REROUTE_LOOP_HOURS),
                                           rider_key, z, mode=m))
+            entry: dict[str, Any] = {"index": i, "thrill": z, "mode": m,
+                                     "ok": bool(plan.get("ok")), "in_search": searching}
             if not plan.get("ok"):
                 tried.append({"thrill": z, "mode": m, "ok": False,
                               "note": plan.get("note")})
+                plans.append({**entry, "note": plan.get("note"), "plan": plan})
                 continue
             cells = {str(c) for c in (plan.get("cells") or [])}
             shared = (len(cells & ahead) / len(cells)) if cells and ahead else None
+            plans.append({**entry, "shares_current_road": shared, "plan": plan})
+            if not searching:
+                continue
             tried.append({"thrill": z, "mode": m, "ok": True,
                           "km": (plan.get("summary") or {}).get("km"),
                           "shares_current_road": shared})
@@ -704,16 +765,20 @@ class Assistant:
             rank = shared if (change == "avoid_this_road" and shared is not None) else 0.0
             if best is None or rank < best[0]:
                 best = (rank, plan, {"thrill": z, "mode": m,
-                                     "shares_current_road": shared})
+                                     "shares_current_road": shared, "index": i})
             if change != "avoid_this_road":
-                break
+                searching = False
 
         if best is None:
-            return {"error": "The engine could not plan anything from here.",
-                    "tried": tried}
+            out_err: dict[str, Any] = {"error": "The engine could not plan anything from here.",
+                                       "tried": tried}
+            if keep_all:
+                out_err["candidates"] = _candidates(plans, None, change)
+            return out_err
 
         _, plan, won = best
-        return {**plan, "reroute": {
+        extra = {"candidates": _candidates(plans, won, change)} if keep_all else {}
+        return {**plan, **extra, "reroute": {
             "change": change,
             "reason": a.get("reason"),
             "from": here,
