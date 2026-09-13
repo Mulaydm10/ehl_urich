@@ -1,0 +1,57 @@
+installed the new apk, check the logs
+
+---
+
+done, check the logs
+
+---
+
+BLUETTOOHT SCAN DONE  ,  now tell how will it attached to bike ?
+
+---
+
+so first connect on bluettoh of the device then it sees on the app
+
+---
+
+ok we are going to bike keep watching
+
+---
+
+will it check the bikemodel
+
+---
+
+check the logs
+
+---
+
+cause bluethooth is connected
+
+---
+
+<task-notification>
+<task-id>browfez2w</task-id>
+<tool-use-id>toolu_01XXJZQrKPYSF3aqFF35ruwG</tool-use-id>
+<output-file>/tmp/claude-1000/-home-mulaydm10-ehl-urich/c17c88ee-b5be-4d5c-b7a3-c4a2d053e2f3/tasks/browfez2w.output</output-file>
+<status>completed</status>
+<summary>Background command "Alert when the phone lists paired devices or probes the bike" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+not shwing on the app
+
+---
+
+<task-notification>
+<task-id>bhmhgm2ij</task-id>
+<tool-use-id>toolu_01DoXQcaYR8wNiWMoyxVQMgQ</tool-use-id>
+<output-file>/tmp/claude-1000/-home-mulaydm10-ehl-urich/c17c88ee-b5be-4d5c-b7a3-c4a2d053e2f3/tasks/bhmhgm2ij.output</output-file>
+<status>completed</status>
+<summary>Background command "Alert when the RFCOMM probe result arrives" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+its connected can u get some kind of data from the bike
