@@ -10,7 +10,7 @@ description: Test RideFit cloud-assistant and map flows on a headless Android em
 - Reinstall the rebuilt APK with `adb -s emulator-5554 install -r app/android/app/build/outputs/apk/debug/app-debug.apk`; launch `com.bmwmotorrad.ridefit/.MainActivity`.
 - Mirror a headless emulator with official scrcpy, setting `ADB` if adb is not on PATH. If distro packages are unavailable, use an official Genymobile release. Maximize the mirror with wmctrl before recording.
 - The emulator reaches VM-host services through `10.0.2.2`. Set the backend in More → Backend and click Connect. On Linux use `FLOWSTATE_MOCK=1`; distinguish live HTTP connection from real route-engine/physical-BMW data.
-- Start API from `flowstate`: `python3 -m uvicorn api:app --app-dir app --host 0.0.0.0 --port 8091`.
+- Start API from `flowstate`: `FLOWSTATE_MOCK=1 python3 -m uvicorn api:app --app-dir app --host 127.0.0.1 --port 8091`. The emulator's `10.0.2.2` is the host's loopback, so `127.0.0.1` is enough. Never bind `0.0.0.0` and never use `tailscale funnel`; on the Mac mini (real engine, NDA-derived data) only `flowstate/run_api.sh` is used, which binds the tailnet address.
 - If HTTP calls fail, inspect logcat for mixed-content/cleartext errors. Capacitor's app origin scheme and HTTP backend compatibility matter; Android INTERNET permission alone is insufficient.
 
 ## Devin Secrets Needed
