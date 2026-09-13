@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.10.6",
+  "checkpoint_id": "01M2CCADTD1GR69QABZ9FPF6EV",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CONTEXT.md",
+    "flowstate/analysis/10_crowd_layer.py",
+    "flowstate/analysis/14_bake_demo.py",
+    "flowstate/analysis/out/feature_verdicts.csv",
+    "flowstate/app/route_tab.py",
+    "flowstate/app/router.py",
+    "flowstate/app/service.py",
+    "flowstate/docs/19_FEATURE_PHASES.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 3466,
+    "cache_creation_tokens": 2438134,
+    "cache_read_tokens": 85520604,
+    "output_tokens": 796543,
+    "api_call_count": 550
+  }
+}

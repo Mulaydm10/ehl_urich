@@ -1,0 +1,118 @@
+complete the next phase , i a going somehwere btw time i am back i need it complete
+
+---
+
+how many more phases ?
+
+---
+
+merge and push before moving to next phase
+
+---
+
+merge and push before moving to next phase
+
+---
+
+and also tell me how many more phases and then wait till i coompact and put in the message after compact
+
+---
+
+Continue the BMW Motorrad FLOWSTATE build. Read in order: CONTEXT.md,
+flowstate/docs/19_FEATURE_PHASES.md (operative plan), flowstate/docs/21_PHASE2_ROAD_CHARACTER.md,
+flowstate/docs/20_PHASE1_JOY_METER.md, flowstate/docs/14_PHASE2_ROUTER.md, and the F0.3/F0.4
+and F3.1-F3.5 sections of ~/Downloads/FEATURES.md (spec only; stale where docs disagree).
+Current as of 0850c1f; docs override memory.
+
+Work on the Mac: `ssh macmini`, repo ~/ehl_urich. Shell is zsh: no word-splitting of $vars in
+loops. Venv COMPULSORY: /Users/mulaydm10/ehl_urich/.venv/bin/python. Write scripts locally in
+the scratchpad and scp them; never inline heredocs over ssh. AppTest paths must be absolute.
+Validate EVERYTHING by running it on real data. Ignore the deadline.
+
+DO PHASE 3 of doc 19 - riders and modes. Facts already measured (do not re-derive):
+- userC_corners.parquet columns: n, req, lean, sgn, v, lat, lon, elev, ride. NO morton column,
+  so calibrate_rider (needs corners["morton"] + "lean_deg") needs an adapter. First test whether
+  lake morton_code is a Bing quadkey of raw or map-matched lat/lon (scratchpad p3_probe.py does
+  this - scp and run it); if it matches, encode exactly, else snap to nearest cell and say so.
+  User C corners come from a different recipe than user A's 5,253 filtered corners; say so.
+- User A manifest (flowstate.load_manifest(), 101 rides): engineMaxRpm per RIDE spans
+  3,685-11,745 (FEATURES.md's 7,210-11,745 is likely per-bike max - verify), plus
+  accelerationMax, rideDistance, leanAngleLeft/RightMax. 20 bikes; corners on 15 (da67fa06
+  1,648 · 4e1a9d64 1,312 · d4bc466c 841 · 3dc7f3aa 475 · 2105b648 453 · rest < 130).
+- FEATURES.md mode table (F3.2): Scenic / Flow-Fast / Adventure / Mountain / Urban Wande
+  demand, elevation, popularity, rhythm, no-stop, dwell. Map ONLY to columns that passed doc 21:
+  reversals_km, rhythm_wavelength_m + rhythm_purity, adventure_index (~= demand, never count
+  demand twice), plus existing demand_p90, elev_prominence_m / elev_mean, n_rides, stop_rate.
+  NOT dwell_share (redundant with stop_rate), NOT traffic, NOT viewpoints. Urban Wander
+  to Phase 4 - define it but say so.
+- F3.4 spec: mood from rpm / (3.6 v) (FEATURES claims corr 0.54 with median lean, across rides)
+  in the first 10 min -> suggested mode, offered never imposed. Test it pre-registered on A and C:
+  does the first-10-min signal predict the rest of the ride (kappa or rho), not just exist.
+- F3.5: exp(-(road_wavelength - rider_wavelength)^2 / 2h^2). Rider wavelength from their own
+  rides with the SAME rhythm method as analysis/10_crowd_layer.py (10 m, 1.28 km Hann, hop 160 m).
+  Test that riders A and C actually differ before calling it personal.
+
+Build:
+1. user C into service.riders(); measure on the three presets; rewrite beat 3 of
+   10_LIVE_DEMO.md only if the road moves. Fix the route_tab.py help string that says there is
+   no second human (string only; UI frozen).
+2. F0.4 bike DNA: cluster user A's bikes (pre-register a silhouette bar); name archetypes from
+   centroids and say naming is interpretation; user C -> default archetype.
+3. F3.2 modes: weight vector in score_cells; mode= threaded through build_graph / route / loop /
+   compare and the service graph cache key. mode="flow" must reproduce today's numbers EXACTLY
+   (skip the code path). Gate and refusals must not depend on mode. Rerun the 200-pair scan
+   (analysis/12_route_calibration.py od_scan) per mode: share of pairs where the road changes,
+   and whether the mode's target column rises on changed pairs (pre-registered sign test
+4. F3.3 bike -> default mode (test whether archetype predicts road choice; else DEFAULT-ONLY).
+5. F3.4 detect_mood(), F3.5 rhythm match - backend only.
+Record fails as fails; a failed feature is not wired in.
+
+Phase ends with: regression gate (Lenggries->Bad Tolz headline "Same two points. 1.13x the
+distance, 83% of it on different roads, +2.7 deg more lean asked of you."; Kochel->Tegernsee
+overlap 0.848; Kochel 2 h loop Send it 133.4 km / 118.7 min / 0.936 distinct), rebake
+analysis/14_bake_demo.py, service.init() from bake, AppTest 0 exceptions / 5 tabs, doc 22 +
+verdict rows (next id F118) + CONTEXT + doc 19 status, then merge: commit on Linux, push, on the
+Mac compare git hash-object of every scp'd file to origin/main before discarding it, git pull
+--ff-only, both at the same hash. Then tell me and give the next /compact + prompt.
+
+Standing: Streamlit UI FROZEN. Leaflet REJECTED. Geo stack SAFE via
+`uv pip install --only-binary=:all:` only. NDA data never leaves the Mac; analysis/out/*.parquet
+gitignored; never commit trip ids or ride coordinates; test JSONs aggregates only. Never
+ends as places (homes). run_demo.sh binds tailnet only - never 0.0.0.0, never tailscale funnel.
+Never score speed. Never quote: 1.5-1.8x detour, ablation weights, leave-one-rider-out,
+left/right asymmetry, the "three trip ids" card, the grip-budget ABS line, or "the crowd
+here".
+
+---
+
+<task-notification>
+<task-id>bme98yrlp</task-id>
+<tool-use-id>toolu_01BtzXcuxn8CTcZw6Kqju6CT</tool-use-id>
+<output-file>/tmp/claude-1000/-home-mulaydm10-ehl-urich/c17c88ee-b5be-4d5c-b7a3-c4a2d053e2f3/tasks/bme98yrlp.output</output-file>
+<status>completed</status>
+<summary>Background command "Rebuild both crowd grids with the purity fix" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>bjdmom3sw</task-id>
+<tool-use-id>toolu_01WPW2RjQPFRoNmrrfBKeraA</tool-use-id>
+<output-file>/tmp/claude-1000/-home-mulaydm10-ehl-urich/c17c88ee-b5be-4d5c-b7a3-c4a2d053e2f3/tasks/bjdmom3sw.output</output-file>
+<status>completed</status>
+<summary>Background command "Run the Phase 3 riders and modes tests on the Mac" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>be0zmh6m8</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/tmp/claude-1000/-home-mulaydm10-ehl-urich/c17c88ee-b5be-4d5c-b7a3-c4a2d053e2f3/tasks/be0zmh6m8.output</output-file>
+<status>failed</status>
+<summary>Background command "Rerun Phase 3 tests with provenance and compare" failed with exit code 255</summary>
+</task-notification>
+
+---
+
+parthdeshmukh921@gmail.com  logou amd login from rhis
