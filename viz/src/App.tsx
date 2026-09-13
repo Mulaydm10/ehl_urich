@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import RouteMap, { CAND_COLORS } from './components/RouteMap'
-import { Activity, FlaskConical, Gauge, GitFork, Layers, Loader2, MapPin, Mic, Pause, Play, Route, ShieldAlert, ShieldCheck, SlidersHorizontal, Smartphone, User, WifiOff } from 'lucide-react'
+import { Activity, FlaskConical, Flag, Gauge, GitFork, Layers, Loader2, MapPin, Mic, Pause, Play, Plus, Route, ShieldAlert, ShieldCheck, SlidersHorizontal, Smartphone, User, WifiOff, X } from 'lucide-react'
 import { Bar, Chip, Notice, Section, Stat, Verdict, fmt, pct } from './components/ui'
 import {
   ApiError, COVERAGE, api, inCoverage, planFromResult, summaryOf,
@@ -18,6 +18,7 @@ const CHANGES: { key: Change; label: string; order: string }[] = [
 ]
 const SPEEDS = [30, 120, 600]
 const CUSTOM_EXAMPLE = 'custom:reversals_km=+2,elev_mean=+1,n_rides=-1'
+const MAX_VIA = 6 // flowstate/app/via.py MAX_VIA
 const FEED_POLL_MS = 1000
 const STEP_MS = 1300
 const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms))
@@ -66,7 +67,10 @@ export default function App() {
   const mode = modeSel === 'custom' ? customText.trim() : modeSel
   const [startPick, setStart] = useState<[number, number] | null>(null)
   const [destPick, setDest] = useState<[number, number] | null>(null)
-  const [pick, setPick] = useState<'start' | 'dest' | null>(null)
+  const [pick, setPick] = useState<'start' | 'dest' | 'via' | null>(null)
+  // Stops on the way, in the order the rider added them. The engine plans one
+  // leg per pair and never reorders them (flowstate/app/via.py).
+  const [via, setVia] = useState<[number, number][]>([])
   const start = startPick ?? presets?.routes[0]?.a ?? null
   const dest = destPick ?? presets?.routes[0]?.b ?? null
   const rider = riders.find((r) => r.key === riderKey) ?? null
@@ -81,18 +85,31 @@ export default function App() {
     const bad: string[] = []
     if (start && !inCoverage(start[0], start[1])) bad.push(`start ${start[0].toFixed(3)}, ${start[1].toFixed(3)}`)
     if (dest && !inCoverage(dest[0], dest[1])) bad.push(`destination ${dest[0].toFixed(3)}, ${dest[1].toFixed(3)}`)
+    via.forEach((v, i) => { if (!inCoverage(v[0], v[1])) bad.push(`stop ${i + 1} ${v[0].toFixed(3)}, ${v[1].toFixed(3)}`) })
     return bad
-  }, [start, dest])
+  }, [start, dest, via])
 
-  const plan = async () => {
+  const planWith = async (stops: [number, number][]) => {
     if (!start || !dest) return
     setPlanning(true); setActiveErr(null); setReroute(null); setSelected(null)
     try {
-      const p = await api.route(start, dest, riderKey, thrill, mode)
+      const p = stops.length
+        ? await api.routeVia([start, ...stops, dest], riderKey, thrill, mode)
+        : await api.route(start, dest, riderKey, thrill, mode)
       if (!p.ok) { setActive(null); setActiveErr(p.note || 'The engine returned no route.'); return }
-      setActive(p); setActiveLabel(`${mode} @ ${thrill.toFixed(2)}`); setT(0); setPlaying(false)
+      setActive(p)
+      setActiveLabel(`${mode} @ ${thrill.toFixed(2)}${stops.length ? ` · through ${stops.length} stop${stops.length === 1 ? '' : 's'}` : ''}`)
+      setT(0); setPlaying(false)
     } catch (e) { setActive(null); setActiveErr(errText(e)) }
     finally { setPlanning(false) }
+  }
+  const plan = () => planWith(via)
+
+  // Adding or removing a stop re-plans immediately, the way Navigate does on
+  // the phone: the line on screen always matches the list of stops.
+  const setStops = (next: [number, number][]) => {
+    setVia(next)
+    if (active || activeErr) void planWith(next)
   }
 
   // ---- phone feed state (logic below, after the reroute state it drives)
@@ -378,7 +395,7 @@ export default function App() {
             ))}
           </div>
           <div className="mt-2 grid grid-cols-2 gap-1.5 text-[12px]">
-            {([['start', 'A', start, '#F1F2F3'], ['dest', 'B', dest, '#6DB6E8']] as const).map(([k, lab, val, col]) => (
+            {([['start', 'A', start, '#F1F2F3'], ['dest', 'B', dest, '#6DB6E8']] as const).map(([k, lab, val, col]: readonly [typeof pick, string, [number, number] | null, string]) => (
               <button type="button" key={k} onClick={() => setPick(pick === k ? null : k)}
                 className={`hairline rounded-lg border px-2.5 py-2 text-left transition-all ${pick === k ? 'shadow-glow' : 'hover:border-ash/50'}`}>
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-dim">
@@ -395,10 +412,37 @@ export default function App() {
           <button type="button" onClick={() => void plan()} disabled={!backendUp || planning || !start || !dest} className="btn-primary mt-2.5 w-full">
             <span className="inline-flex items-center justify-center gap-2">
               {planning ? <Loader2 size={14} className="animate-spin" /> : <Route size={14} />}
-              {planning ? 'planning…' : 'Plan route'}
+              {planning ? 'planning…' : via.length ? `Plan through ${via.length} stop${via.length === 1 ? '' : 's'}` : 'Plan route'}
             </span>
           </button>
           {activeErr ? <div className="mt-2"><Notice kind="error">{activeErr}</Notice></div> : null}
+          <div className="hairline mt-2.5 rounded-lg border bg-void/40 p-2.5">
+            <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-dim">
+              <span className="inline-flex items-center gap-1.5"><Flag size={11} className="text-amber" /> stops on the way</span>
+              <button type="button" onClick={() => setPick(pick === 'via' ? null : 'via')} disabled={via.length >= MAX_VIA}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] normal-case tracking-normal transition-colors disabled:opacity-40 ${pick === 'via' ? 'bg-amber/20 text-amber' : 'bg-raised/60 text-ash hover:text-bone'}`}>
+                <Plus size={10} /> {pick === 'via' ? 'click the map' : 'add stop'}
+              </button>
+            </div>
+            {via.length ? (
+              <ul className="mt-2 space-y-1">
+                {via.map((v, i) => (
+                  <li key={`${i}-${v[0]}-${v[1]}`} className="hairline flex items-center gap-2 rounded-md border bg-raised/40 px-2 py-1 text-[11.5px]">
+                    <span className="grid h-4 w-4 place-items-center rounded bg-amber font-mono text-[10px] font-bold text-void">{i + 1}</span>
+                    <span className="tabular font-mono">{v[0].toFixed(3)}, {v[1].toFixed(3)}</span>
+                    <span className="ml-auto tabular font-mono text-[10.5px] text-dim">{active?.legs?.[i] ? `leg ${fmt(active.legs[i].km)} km` : ''}</span>
+                    <button type="button" onClick={() => setStops(via.filter((_, j) => j !== i))} disabled={planning}
+                      className="text-dim transition-colors hover:text-mred disabled:opacity-40" aria-label={`remove stop ${i + 1}`}><X size={12} /></button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <p className="mt-1.5 text-[11px] leading-snug text-dim">
+              {via.length
+                ? <>Each pair is one engine call (A→1→…→B) in the order you added them — nothing is reordered, and a leg that cannot be planned fails the whole route. Distance and time are the legs’ sums; the fun score is their distance-weighted mean, not a score for the whole line.</>
+                : <>Up to {MAX_VIA} stops. Adding or removing one re-plans straight away; with none, the plain A→B call is used.</>}
+            </p>
+          </div>
           {active?.explain?.length ? (
             <ul className="hairline mt-2.5 space-y-1 rounded-lg border bg-void/40 px-3 py-2 text-[11.5px] leading-snug text-ash">
               {active.explain.map((l, i) => <li key={i} className={l.startsWith('    ') ? 'pl-3 text-mred' : ''}>{l.trim()}</li>)}
@@ -411,7 +455,14 @@ export default function App() {
       <main className="relative">
         <RouteMap active={active} riddenIndex={riderPos?.index ?? 0} candidates={reroute?.candidates ?? []} selected={selected} onSelect={setSelected}
           rider={riderPos?.point ?? null} start={start} dest={dest} coverage={COVERAGE}
-          onPick={pick ? (lat, lon) => { const p: [number, number] = [Number(lat.toFixed(4)), Number(lon.toFixed(4))]; if (pick === 'start') setStart(p); else setDest(p); setPick(null) } : undefined} />
+          via={via} onRemoveVia={(i) => setStops(via.filter((_, j) => j !== i))}
+          onPick={pick ? (lat, lon) => {
+            const p: [number, number] = [Number(lat.toFixed(4)), Number(lon.toFixed(4))]
+            if (pick === 'start') setStart(p)
+            else if (pick === 'dest') setDest(p)
+            else setStops([...via, p])
+            setPick(null)
+          } : undefined} />
 
         {stage ? (
           <div className="glass pointer-events-none absolute left-1/2 top-3 z-[500] flex -translate-x-1/2 animate-rise items-center gap-2 rounded-full px-4 py-1.5 text-[12px]">
@@ -420,7 +471,7 @@ export default function App() {
         ) : null}
         {pick && !stage ? (
           <div className="glass pointer-events-none absolute left-1/2 top-3 z-[500] -translate-x-1/2 animate-rise rounded-full px-4 py-1.5 text-[12px]">
-            Click the map to set <span className="font-semibold text-mlight">{pick === 'start' ? 'A · start' : 'B · destination'}</span>
+            Click the map to {pick === 'via' ? <>add <span className="font-semibold text-amber">stop {via.length + 1}</span></> : <>set <span className="font-semibold text-mlight">{pick === 'start' ? 'A · start' : 'B · destination'}</span></>}
           </div>
         ) : null}
 

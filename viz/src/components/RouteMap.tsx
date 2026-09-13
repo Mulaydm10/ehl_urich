@@ -22,6 +22,7 @@ const refusalIcon = L.divIcon({ className: '', html: '<div class="refusal-dot"><
 const endIcon = (label: string, color: string) => L.divIcon({
   className: '', html: `<div class="end-pin" style="background:${color}">${label}</div>`, iconSize: [0, 0], iconAnchor: [0, 0],
 })
+const viaIcon = (n: number) => endIcon(String(n), '#F5A524')
 
 /** Polyline that draws itself on when its geometry changes. */
 function DrawOnLine({ path, color, weight, opacity, dashed, animate, onClick, children }: {
@@ -77,6 +78,9 @@ export interface RouteMapProps {
   rider: LonLat | null
   start: [number, number] | null
   dest: [number, number] | null
+  /** stops the rider put on the way, in his own order */
+  via: [number, number][]
+  onRemoveVia?: (i: number) => void
   onPick?: (lat: number, lon: number) => void
   coverage: { lat: readonly [number, number]; lon: readonly [number, number] }
 }
@@ -165,6 +169,12 @@ export default function RouteMap(p: RouteMapProps) {
         </Marker>
       ))}
 
+      {p.via.map((v, i) => (
+        <Marker key={`via-${i}-${v[0]}-${v[1]}`} position={v} icon={viaIcon(i + 1)}
+          eventHandlers={p.onRemoveVia ? { click: () => p.onRemoveVia?.(i) } : undefined}>
+          <Tooltip direction="top" offset={[0, -10]}>stop {i + 1} of {p.via.length}{p.onRemoveVia ? ' — click to remove' : ''}</Tooltip>
+        </Marker>
+      ))}
       {p.start ? <Marker position={p.start} icon={endIcon('A', '#F1F2F3')} /> : null}
       {p.dest ? <Marker position={p.dest} icon={endIcon('B', '#6DB6E8')} /> : null}
       {p.rider ? <Marker position={toLatLng(p.rider)} icon={riderIcon} zIndexOffset={1000} /> : null}

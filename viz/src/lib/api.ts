@@ -45,6 +45,13 @@ export interface Summary {
   [k: string]: unknown
 }
 
+/** One engine call inside a plan that went through stops (via.py). */
+export interface Leg {
+  km: number
+  minutes: number
+  points: number
+}
+
 export interface Plan {
   ok: boolean
   note?: string | null
@@ -56,6 +63,8 @@ export interface Plan {
   rider?: string
   z_star?: number
   explain?: string[]
+  legs?: Leg[]
+  failed_leg?: number
 }
 
 export type Verdict = 'accepted' | 'rejected' | 'not_searched' | 'failed'
@@ -225,6 +234,10 @@ export const api = {
   presets: () => call<Presets>('/api/presets'),
   route: (a: [number, number], b: [number, number], rider_key: string, z_star: number, mode: string) =>
     call<Plan>('/api/route', { method: 'POST', body: JSON.stringify({ a, b, rider_key, z_star, mode }) }),
+  // points[0] is the start, points[-1] the destination, the rest the stops in
+  // the order the rider put them in — the engine never reorders them.
+  routeVia: (points: [number, number][], rider_key: string, z_star: number, mode: string) =>
+    call<Plan>('/api/route/via', { method: 'POST', body: JSON.stringify({ points, rider_key, z_star, mode }) }),
   loop: (start: [number, number], hours: number, rider_key: string, z_star: number, mode: string) =>
     call<Plan>('/api/loop', { method: 'POST', body: JSON.stringify({ start, hours, rider_key, z_star, mode }) }),
   rerouteCandidates: (body: {
