@@ -1,0 +1,21 @@
+# Python env for ehl_urich (the .venv was deleted to save disk; rebuild with the steps in README "Setup").
+# Core analysis (versions verified in CONTEXT.md "Environment"):
+pandas==3.0.5
+pyarrow==25.0.1
+numpy==2.5.3
+scipy==1.18.1
+matplotlib
+requests
+# App / map layer (install from wheels only: uv pip install --only-binary=:all: -r requirements.txt)
+shapely
+networkx
+geopandas
+osmnx
+rasterio
+pyproj
+streamlit
+pydeck
+plotly
+# HTTP wrapper (also in flowstate/app/requirements-api.txt)
+fastapi>=0.110
+uvicorn[standard]>=0.29
